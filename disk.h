@@ -5,7 +5,13 @@
 #include <fstream>
 #include <iomanip>
 #include <stdio.h>
+#include <cstdio>
 #include <string.h>
+#include <QDir>
+#include <vector>
+#include <QStringList>
+#include <QFileInfoList>
+#include <QFile>
 
 using namespace std;
 
@@ -30,11 +36,40 @@ struct Inode{
     char permisos[10];
 };
 
+struct FileData{
+    int index_file;
+    char name[50];
+};
+
 /**
- * param: size_block recibe un int que representa el tamanio en mb del disco
- * param: size:blocl recibe un int que representa el tamanio en byte por bloque de disco
+ * @brief createDisk
+ * @param name nombre del disco
+ * @param size_disk recibe un int que representa el tamanio en mb del disco
+ * @param size_block recibe un int que representa el tamanio en byte por bloque de disco
+ * @return true si fue creado el disco
  */
 SuperBlock createDisk(char name[],double size_disk, int size_block);
 
+/**
+ * @brief is_block_in_use
+ * @param bitmap arreglo de chars del mapa de bits
+ * @param blocknum numero de bloque a validar
+ * @return true si el bloque esta ocupado
+ */
+bool is_block_in_use(char* bitmap, int blocknum);
+
+/**
+ * @brief setBlock_use
+ * @param bitmap arreglo de chars del mapa de bits a modificar
+ * @param blocknum numero del bloque a activar
+ */
+void setBlock_use(char* bitmap, int blocknum);
+
+/**
+ * @brief setBlock_unuse
+ * @param bitmap arreglo de chars del mapa de bits a modificar
+ * @param blocknum numero del bloque a desactivar
+ */
+void setBlock_unuse(char* bitmap, int blocknum);
 
 #endif // DISK_H

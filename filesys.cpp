@@ -6,6 +6,24 @@ FileSys::FileSys(QWidget *parent) :
     ui(new Ui::FileSys)
 {
     ui->setupUi(this);
+
+    QDir dir(disks_path);
+
+    cout<<dir.dirName().toStdString()<<endl;
+    QFileInfoList list = dir.entryInfoList();
+
+    for (int var = 0; var < list.size(); ++var) {
+        QString name = list.at(var).fileName();
+        if(name.contains(format))
+        {
+            disks.push_back((list.at(var).fileName().split(format))[0]);
+        }
+        cout<<list.at(var).fileName().toStdString()<<endl;
+    }
+    cout<<"List of Disks:"<<endl;
+    for (int i = 0; i < disks.size(); ++i) {
+        cout<<disks[i].toStdString()<<endl;
+    }
 }
 
 FileSys::~FileSys()
@@ -15,7 +33,7 @@ FileSys::~FileSys()
 
 void FileSys::exCommand(QString command_line)
 {
-    ui->listTerm->addItem(new QListWidgetItem(current_path + "$ " + command_line));
+    ui->listTerm->appendPlainText(current_path + "$ " + command_line);
     QStringList commands = command_line.split(" ");
 
     if(!command_line.isEmpty())
@@ -36,30 +54,38 @@ void FileSys::exCommand(QString command_line)
                 if(commands.size() > 0)
                 {
                     QString name_disk = commands.at(0);
+                    if(name_disk.size()>10){
+                        ui->listTerm->appendPlainText("name_disk is too large, 10 characters maximun");
+                        ui->txtcommandLine->setText("");
+                        return;
+                    }
                     if(fdisk_command == "n")
                     {
-                        if(!(commands.size() < 3))
+                        if(commands.size() == 3)
                         {
                             //aqui va el codigo para crear el disco
                             QString size_disk = commands.at(1);
                             QString size_block = commands.at(2);
 
                             createDisk((char*)(name_disk.toStdString().c_str()),size_disk.toInt(),size_block.toInt());
+                            disks.push_back(name_disk);
                         }else{
-                            ui->listTerm->addItem(new QListWidgetItem(fdisk_commands_empty));
+                            ui->listTerm->appendPlainText(fdisk_commands_empty);
                         }
                     }else if(fdisk_command == "D"){ // muestra informacion del disco
                         cout<<"--> Information"<<endl;
                     }else if(fdisk_command == "d"){ // elimina un disco
                         cout<<"--> Delete"<<endl;
+                        deleteDisk(name_disk);
                     }
                 }else if(fdisk_command == "L"){ // enlista todos los discos
                     cout<<"--> Listar"<<endl;
+                    listDisks();
                 }else{
-                    ui->listTerm->addItem(new QListWidgetItem(fdisk_commands));
+                    ui->listTerm->appendPlainText(fdisk_commands);
                 }
             }else{
-                ui->listTerm->addItem(new QListWidgetItem(fdisk_commands));
+                ui->listTerm->appendPlainText(fdisk_commands);
             }
         }else if(main_command == "mount"){ // comando para motar el disco
             if(commands.size()>0)
@@ -91,12 +117,57 @@ void FileSys::exCommand(QString command_line)
 
             }
         }else{
-            ui->listTerm->addItem(new QListWidgetItem(main_command + " is not a valid command"));
+            ui->listTerm->appendPlainText(main_command + " is not a valid command");
         }
         ui->txtcommandLine->setText("");
     }else{
         cout<<last_command_line.toStdString()<<endl;
         ui->txtcommandLine->setText(last_command_line);
+    }
+}
+
+void FileSys::mountDisk(QString disk_name)
+{
+    if (existDisk(disk_name)>0) {
+
+    }
+}
+
+void FileSys::listDisks()
+{
+    QString title = "List of Disks:";
+    cout<<title.toStdString().c_str()<<endl;
+    ui->listTerm->appendPlainText(title);
+    for (int i = 0; i < disks.size(); ++i) {
+        cout<<disks[i].toStdString()<<endl;
+        ui->listTerm->appendPlainText("->" + disks[i]);
+    }
+}
+
+int FileSys::existDisk(QString disk_name)
+{
+    for (int i = 0; i < disks.size(); ++i) {
+        if(QString::compare(disks[i], disk_name,Qt::CaseSensitive)==0)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void FileSys::deleteDisk(QString disk_name)
+{
+    int index = existDisk(disk_name);
+    if (index>0) {
+        if(remove((disks_path + disk_name + format).toStdString().c_str())==0)
+        {
+            disks.erase(disks.begin()+index);
+            cout<<"removed file: "<<(disks_path + disk_name + format).toStdString().c_str()<<endl;
+        }else{
+            cout<<"no removed"<<endl;
+        }
+    }else{
+        cout<<"no existe el disco"<<endl;
     }
 }
 
