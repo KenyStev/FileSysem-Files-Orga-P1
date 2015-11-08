@@ -22,13 +22,18 @@ private slots:
 private:
     Ui::FileSys *ui;
 
-    ofstream *diskManager = NULL;
-    bool mounted_disk=false;
+//    ofstream *diskManager = NULL;
+    QString mounted_disk = "";
+    bool is_mounted_disk=false;
+    SuperBlock Super_Block;
+    FileData *file_data_array;
+    char *bitmap;
+    char *bitmap_inodes;
     vector<QString> disks;
 
     QString root_path = "/";
     QString disks_path = "VirtualDisks/";
-    QString current_path = "";
+    QStringList current_path;
     QString format = ".data";
     QString fdisk_commands = "command' list for fdisk:"
                              "\nfdisk D [name_disk] : show disk's detalls"
@@ -38,11 +43,41 @@ private:
     QString fdisk_commands_empty = "we expect: fdisk n [name_disk] [size_disk] [size_per_block]";
     QString last_command_line = "";
 
-    void exCommand(QString);
-    void mountDisk(QString);
+    /**
+     * @brief exCommand
+     * @param command_line recibe la linea de comando ingresada por el usuario para parcearla y ejecutar el comando correcto
+     */
+    void exCommand(QString command_line);
+
+    /**
+     * @brief mountDisk
+     * @param disk_name el nombre del disco a montar
+     */
+    void mountDisk(QString disk_name);
+
+    /**
+     * @brief listDisks enlista los discos creados
+     */
     void listDisks();
-    int existDisk(QString);
-    void deleteDisk(QString);
+
+    /**
+     * @brief existDisk evalua si el disco enviado de parametro existe o no
+     * @param disk_name
+     * @return index del disco si el disco existe sino retorna -1
+     */
+    int existDisk(QString disk_name);
+
+    /**
+     * @brief deleteDisk borra el enviad de parametro si existe
+     * @param disk_name
+     */
+    void deleteDisk(QString disk_name);
+
+    /**
+     * @brief showInfoDisk muestra la informacion del disco enviado de parametro si existe
+     * @param disk_name
+     */
+    void showInfoDisk(QString disk_name);
 };
 
 #endif // FILESYS_H

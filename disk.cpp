@@ -34,7 +34,7 @@ SuperBlock createDisk(char name[],double size_disk, int size_block){
     int inodes_size = sizeof(Inode);
     int FileData_size = sizeof(FileData);
 
-    int total_size_fs = sizeof(SuperBlock) + sizeof(bitmap) + sizeof(bitmap_inodes) + inodes_size*(SP.cantofinode)
+    double total_size_fs = sizeof(SuperBlock) + sizeof(bitmap) + sizeof(bitmap_inodes) + inodes_size*(SP.cantofinode)
                                             + FileData_size*(SP.cantofinode);
 
     double FS_blocks_WR = total_size_fs/size_block;
@@ -144,4 +144,28 @@ void setBlock_unuse(char* bitmap, int blocknum){
     int indexonbitmap = blocknum / 8;
     int posinchar = blocknum%8;
     bitmap[indexonbitmap]= bitmap[indexonbitmap] & ~(1<<posinchar);
+}
+
+
+double getTotalBlocksToUse(double file_size, int block_size)
+{
+    int x = block_size/4;
+    double blocks_data = file_size/block_size;
+    double extra_blocks = 0;
+
+    if(blocks_data <= 10){
+        extra_blocks = 0;
+    }else if(blocks_data <= (10 + x)){
+        extra_blocks = 1;
+    }else if(blocks_data <= (10 + x + pow(x,2))){
+        double blocks_temp = blocks_data - (10 + x);
+        extra_blocks = blocks_temp/x + 2;
+    }else if(blocks_data <= (10 + x + pow(x,2) + pow(x,3))){
+        double blocks_temp = blocks_data - (10 + x + pow(x,2));
+        extra_blocks = (blocks_temp*(1+x))/(pow(x,2)) + 3;//blocks_temp/(pow(x,2)) + blocks_temp/x + 3;
+    }else{
+        return -1;
+    }
+
+    return ceil(blocks_data + extra_blocks);
 }

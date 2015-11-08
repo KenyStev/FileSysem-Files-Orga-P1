@@ -12,14 +12,15 @@
 #include <QStringList>
 #include <QFileInfoList>
 #include <QFile>
+#include <math.h>
 
 using namespace std;
 
 struct SuperBlock {
-    int size;
+    double size;
     int cantofblock;
     int freeblock;
-    int freespace;
+    double freespace;
     int cantofinode;
     int freeinode;
     int sizeofblock;
@@ -49,6 +50,16 @@ struct FileData{
  * @return true si fue creado el disco
  */
 SuperBlock createDisk(char name[],double size_disk, int size_block);
+
+/**
+ * @brief getTotalBlocksToUse calcula el numero de bloques que se necesitarian para guardar un
+ * archivo del tamanio especificado en el parametro, teniendo en cuenta la cantidad de bloques de directos_simples,
+ * indirectos simples, dobles y  triples que tendria que usar el inodo
+ * @param file_size tamanio del archivo en bytes
+ * @param size_block tamanio del bloque en bytes
+ * @return numero de bloques calculados para guardar todo el archivo
+ */
+double getTotalBlocksToUse(double file_size, int size_block);
 
 /**
  * @brief is_block_in_use

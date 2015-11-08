@@ -33,7 +33,7 @@ FileSys::~FileSys()
 
 void FileSys::exCommand(QString command_line)
 {
-    ui->listTerm->appendPlainText(current_path + "$ " + command_line);
+    ui->listTerm->appendPlainText(mounted_disk + "$ " + current_path.join("/") + command_line);
     QStringList commands = command_line.split(" ");
 
     if(!command_line.isEmpty())
@@ -74,6 +74,7 @@ void FileSys::exCommand(QString command_line)
                         }
                     }else if(fdisk_command == "D"){ // muestra informacion del disco
                         cout<<"--> Information"<<endl;
+                        showInfoDisk(name_disk);
                     }else if(fdisk_command == "d"){ // elimina un disco
                         cout<<"--> Delete"<<endl;
                         deleteDisk(name_disk);
@@ -91,9 +92,10 @@ void FileSys::exCommand(QString command_line)
             if(commands.size()>0)
             {
                 // aqui va el codigo de montar un disco
+                cout<<"-> Montar Disco"<<endl;
+                mountDisk(commands.at(0));
             }
-        }else if(mounted_disk) // comandos si hay un disco esta montado
-        {
+        }else if(is_mounted_disk){ // comandos si hay un disco esta montado
             if(main_command == "ls") // comand ls -l
             {
 
@@ -128,8 +130,43 @@ void FileSys::exCommand(QString command_line)
 
 void FileSys::mountDisk(QString disk_name)
 {
-    if (existDisk(disk_name)>0) {
+    int index = existDisk(disk_name);
+    if (index>=0) {
+        ifstream in((disks_path + disk_name + format).toStdString().c_str(), ios::in | ios:: out | ios::binary);
+        is_mounted_disk = in.is_open();
 
+        if(is_mounted_disk)
+        {
+            ui->listTerm->appendPlainText("Disco: " + disk_name + " montado!");
+            mounted_disk = disk_name;
+
+//            SuperBlock *SB = new SuperBlock();
+
+            int size_SB = sizeof(SuperBlock);
+            char *buffer = new char[size_SB];
+
+            in.read(buffer,size_SB);
+
+            memcpy(&Super_Block,buffer,size_SB);
+
+            cout<<"Disk: "<<Super_Block.name<<endl;
+            cout<<"cant of blocks: "<<Super_Block.cantofblock<<endl;
+            cout<<"cant of inodes: "<<Super_Block.cantofinode<<endl;
+            cout<<"Free blocks: "<<Super_Block.freeblock<<endl;
+            cout<<"Free Scpace: "<<Super_Block.freespace<<endl;
+            cout<<"Size: "<<Super_Block.size<<endl;
+            cout<<"Size of Block: "<<Super_Block.sizeofblock<<endl;
+
+            cout<<"Pointer after read SB: "<<in.tellg()<<endl;
+            cout<<"Size SB: "<<size_SB<<endl;
+
+        }else{
+            ui->listTerm->appendPlainText("No se pudo montar el disco: " + disk_name + "!");
+        }
+
+        in.close();
+    }else{
+        cout<<"no existe el disco"<<endl;
     }
 }
 
@@ -146,7 +183,7 @@ void FileSys::listDisks()
 
 int FileSys::existDisk(QString disk_name)
 {
-    for (int i = 0; i < disks.size(); ++i) {
+    for (int i = 0; i < disks.size(); i++) {
         if(QString::compare(disks[i], disk_name,Qt::CaseSensitive)==0)
         {
             return i;
@@ -158,7 +195,7 @@ int FileSys::existDisk(QString disk_name)
 void FileSys::deleteDisk(QString disk_name)
 {
     int index = existDisk(disk_name);
-    if (index>0) {
+    if (index>=0) {
         if(remove((disks_path + disk_name + format).toStdString().c_str())==0)
         {
             disks.erase(disks.begin()+index);
@@ -166,6 +203,43 @@ void FileSys::deleteDisk(QString disk_name)
         }else{
             cout<<"no removed"<<endl;
         }
+    }else{
+        cout<<"no existe el disco"<<endl;
+    }
+}
+
+void FileSys::showInfoDisk(QString disk_name)
+{
+    if(existDisk(disk_name))
+    {
+        ifstream in((disks_path + disk_name + format).toStdString().c_str(), ios::in | ios:: out | ios::binary);
+
+        SuperBlock SB;
+
+        int size_SB = sizeof(SuperBlock);
+        char *buffer = new char[size_SB];
+
+        in.read(buffer,size_SB);
+        in.close();
+
+        memcpy(&SB,buffer,size_SB);
+
+        cout<<"Disk: "<<SB.name<<endl;
+        cout<<"cant of blocks: "<<SB.cantofblock<<endl;
+        cout<<"cant of inodes: "<<SB.cantofinode<<endl;
+        cout<<"Free blocks: "<<SB.freeblock<<endl;
+        cout<<"Free Scpace: "<<SB.freespace<<endl;
+        cout<<"Size: "<<SB.size<<endl;
+        cout<<"Size of Block: "<<SB.sizeofblock<<endl;
+
+        ui->listTerm->appendPlainText("Information Disk: " + QString(SB.name));
+        ui->listTerm->appendPlainText("Size: " + QString::number(SB.size) + " bytes");
+        ui->listTerm->appendPlainText("Free Space: " + QString::number(SB.freespace) + " bytes");
+        ui->listTerm->appendPlainText("Size of block: " + QString::number(SB.sizeofblock) + " bytes");
+        ui->listTerm->appendPlainText("blocks: " + QString::number(SB.cantofblock));
+        ui->listTerm->appendPlainText("Free blocks: " + QString::number(SB.freeblock));
+        ui->listTerm->appendPlainText("inodes: " + QString::number(SB.cantofinode));
+
     }else{
         cout<<"no existe el disco"<<endl;
     }
