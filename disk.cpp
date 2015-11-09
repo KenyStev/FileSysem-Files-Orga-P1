@@ -78,13 +78,14 @@ SuperBlock createDisk(char name[],double size_disk, int size_block){
     output_file.write(((char*)bitmap_inodes),sizeof(bitmap_inodes));
     //output_file.write("end bmi",7);
 
-    FileData file;
+    FileData root;
 
     //setendo el primer FilaData que pertenece al root
-    strcpy(file.name,"/");
-    file.index_file = 0;
-    output_file.write(((char*)&file),FileData_size);
+    strcpy(root.name,"/");
+    root.index_file = 0;
+    output_file.write(((char*)&root),FileData_size);
 
+    FileData file;
     file.index_file = -1;
 //    strcpy(file.name,"");
     memset(file.name,0,sizeof(char)*50); // 50 caracteres maximo para el nombre

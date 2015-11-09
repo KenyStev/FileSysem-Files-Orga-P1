@@ -33,7 +33,7 @@ FileSys::~FileSys()
 
 void FileSys::exCommand(QString command_line)
 {
-    ui->listTerm->appendPlainText(mounted_disk + "$ " + current_path.join("/") + command_line);
+    ui->listTerm->appendPlainText(mounted_disk + "@root~" + root_path + current_path.join("/") + "$ " + command_line);
     QStringList commands = command_line.split(" ");
 
     if(!command_line.isEmpty())
@@ -160,6 +160,39 @@ void FileSys::mountDisk(QString disk_name)
             cout<<"Pointer after read SB: "<<in.tellg()<<endl;
             cout<<"Size SB: "<<size_SB<<endl;
 
+            start_datablocks = Super_Block.cantofblock; //guardando el lugar donde comienza el DataBlock
+
+            //Leyendo bitmap
+            bitmap = new char[Super_Block.cantofblock/8];
+            start_bitmap = in.tellg(); //guardando el lugar donde comienza el bitmap
+
+            in.read(bitmap,sizeof(char)*(Super_Block.cantofblock/8));
+            cout<<"is_in_use 0: "<<is_block_in_use(bitmap,0)<<endl;
+
+            //leyendo bitmap_inodos
+            bitmap_inodes = new char[Super_Block.cantofinode/8];
+            start_bitmap_inodes = in.tellg(); //guardando el lugar donde comienza el bitmap_inodes
+
+            in.read(bitmap_inodes,sizeof(char)*(Super_Block.cantofinode/8));
+            cout<<"is_in_use 0 inodes: "<<is_block_in_use(bitmap_inodes,0)<<endl;
+
+            //leyendo FileTable
+            int size_DataFile = sizeof(FileData);
+            buffer = new char[size_DataFile];
+            start_filetable = in.tellg(); //guardando el lugar donde comienza el FileTable
+
+            for (int i = 1; i < Super_Block.cantofinode; ++i) {
+                in.read(buffer,size_DataFile);
+                FileData *FD = new FileData();
+                memcpy(FD,buffer,size_DataFile);
+                file_data_array.push_back(FD);
+            }
+
+            cout<<"FD_root_name: "<<file_data_array[0]->name<<endl;
+            cout<<"FD_root_index_inode: "<<file_data_array[0]->index_file<<endl;
+            cout<<"FD_1: "<<file_data_array[1]->name<<endl;
+            cout<<"FD_1_index_inode: "<<file_data_array[1]->index_file<<endl;
+
         }else{
             ui->listTerm->appendPlainText("No se pudo montar el disco: " + disk_name + "!");
         }
@@ -168,6 +201,17 @@ void FileSys::mountDisk(QString disk_name)
     }else{
         cout<<"no existe el disco"<<endl;
     }
+
+    //probando cambiar el filetable
+    /*//si funciona.
+    ofstream output_file((disks_path + disk_name + format).toStdString().c_str(), ios::in | ios::out | ios::binary);
+    output_file.seekp(start_filetable + sizeof(FileData));
+    strcpy(file_data_array[1]->name,"Hola");
+    file_data_array[1]->index_file = 1;
+
+    output_file.write((char*)file_data_array[1],sizeof(FileData));
+
+    output_file.close();*/
 }
 
 void FileSys::listDisks()

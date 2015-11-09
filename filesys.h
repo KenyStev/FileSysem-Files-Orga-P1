@@ -26,9 +26,10 @@ private:
     QString mounted_disk = "";
     bool is_mounted_disk=false;
     SuperBlock Super_Block;
-    FileData *file_data_array;
+    vector<FileData*> file_data_array;
     char *bitmap;
     char *bitmap_inodes;
+    int start_bitmap=0,start_bitmap_inodes=0,start_filetable=0,start_inodes=0,start_datablocks=0;
     vector<QString> disks;
 
     QString root_path = "/";
