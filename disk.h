@@ -83,4 +83,52 @@ void setBlock_use(char* bitmap, int blocknum);
  */
 void setBlock_unuse(char* bitmap, int blocknum);
 
+/**
+ * @brief write escribe data en el disco dado
+ * @param disk_name nombre del disco a donde va a escribir
+ * @param buffer data a escribir
+ * @param start posicion donde comenzara a excribir
+ * @param bytes_to_write cantidad de bytes a excribir
+ */
+void write(string disk_name,char *buffer, double start, double bytes_to_write);
+
+/**
+ * @brief read
+ * @param disk_name
+ * @param buffer
+ * @param start
+ * @param bytes_to_write
+ */
+void read(string disk_name, char *buffer, double start, double bytes_to_write);
+
+/**
+ * @brief getFreeBlocks
+ * @param cant_of_blocks cantidad de bloques a asignarles una posicion en el disco
+ * @return un vector de tamanio cant_of_blocks con las direcciones de los bloques libres donde se podra guardar el archivo
+ */
+vector<int> getFreeBlocks(char *bitmap, double size_bitmap, double cant_of_blocks);
+
+/**
+ * @brief getFreeSequentialBlocks
+ * @param cant_of_blocks cantidad de bloques a asignarles una posicion en el disco
+ * @return un vector de tamanio cant_of_blocks con las direcciones de los bloques libres que esten secuencialmente
+ * donde se podra guardar el archivo, si no hay la cantidad de bloques especificada en forma secuencial, entonces retorna
+ * el vector con la primer posicion: -1
+ */
+vector<int> getFreeSequentialBlocks(char *bitmap, double size_bitmap, double cant_of_blocks);
+
+/**
+ * @brief set_blocks_in_use setea los blocks especificados en el vector es estado ocupado: 1
+ * @param bitmap
+ * @param blocks
+ */
+void set_blocks_in_use(char *bitmap, vector<int> blocks);
+
+/**
+ * @brief set_blocks_in_unuse setea los blocks especificados en el vector en estado libres: 0
+ * @param bitmap
+ * @param blocks
+ */
+void set_blocks_in_unuse(char *bitmap, vector<int> blocks);
+
 #endif // DISK_H

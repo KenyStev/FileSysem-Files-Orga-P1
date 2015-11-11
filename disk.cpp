@@ -41,7 +41,7 @@ SuperBlock createDisk(char name[],double size_disk, int size_block){
     int FS_blocks = FS_blocks_WR+1;
 
     SP.freeblock = cantofblock - FS_blocks;
-    SP.freeinode = SP.cantofinode;
+    SP.freeinode = SP.cantofinode - 1;
     SP.freespace = disksizebyte - total_size_fs;//sizeof(SuperBlock);
     strcpy(SP.name, name);
     SP.size = disksizebyte;
@@ -151,11 +151,11 @@ void setBlock_unuse(char* bitmap, int blocknum){
 double getTotalBlocksToUse(double file_size, int block_size)
 {
     int x = block_size/4;
-    double blocks_data = file_size/block_size;
+    double blocks_data = ceil(file_size/block_size);
     double extra_blocks = 0;
 
     if(blocks_data <= 10){
-        extra_blocks = 0;
+        extra_blocks = 0;`
     }else if(blocks_data <= (10 + x)){
         extra_blocks = 1;
     }else if(blocks_data <= (10 + x + pow(x,2))){
@@ -163,10 +163,106 @@ double getTotalBlocksToUse(double file_size, int block_size)
         extra_blocks = blocks_temp/x + 2;
     }else if(blocks_data <= (10 + x + pow(x,2) + pow(x,3))){
         double blocks_temp = blocks_data - (10 + x + pow(x,2));
-        extra_blocks = (blocks_temp*(1+x))/(pow(x,2)) + 3;//blocks_temp/(pow(x,2)) + blocks_temp/x + 3;
+        extra_blocks = ceil(blocks_temp/(pow(x,2))) + ceil(blocks_temp/x ) + 3 + x;//(blocks_temp*(1+x))/(pow(x,2)) + 3 + x;//blocks_temp/(pow(x,2)) + blocks_temp/x + 3;
     }else{
         return -1;
     }
 
     return ceil(blocks_data + extra_blocks);
+}
+
+
+void write(string disk_name, char *buffer, double start, double bytes_to_write)
+{
+    ofstream out(disk_name.c_str(), ios::in | ios::out | ios::binary);
+
+    out.seekp(start);
+    out.write(buffer,bytes_to_write);
+
+    out.close();
+}
+
+void read(string disk_name, char *buffer, double start, double bytes_to_read)
+{
+    ifstream in(disk_name.c_str(), ios::in | ios::out | ios::binary);
+
+    in.seekg(start);
+    in.read(buffer,bytes_to_read);
+
+    in.close();
+}
+
+
+vector<int> getFreeBlocks(char *bitmap, double size_bitmap, double cant_of_blocks)
+{
+    vector<int> blocks;
+    for (int i = 0; i < size_bitmap; ++i) {
+        if(cant_of_blocks==0) break;
+        if(!is_block_in_use(bitmap,i))
+        {
+            blocks.push_back(i);
+            cant_of_blocks--;
+            setBlock_use(bitmap,i);
+        }
+    }
+    return blocks;
+}
+
+
+vector<int> getFreeSequentialBlocks(char *bitmap, double size_bitmap, double cant_of_blocks)
+{
+    vector<int> blocks;
+    double T_blocks = cant_of_blocks; // Total de bloques a buscar
+    double start=0; //comienza a buscar en 0
+    while (T_blocks>0) { //mientras el total de bloques a buscar sea mayor que cero, sequira buscando
+        bool start_encontrado=false;
+        //recorremos el mapa de bits hasta encontrar el primer bloque libre
+        for (int i = start; i < size_bitmap; ++i) {
+            if(!is_block_in_use(bitmap,i)) //si el bloque no esta usado
+            {
+                start = i; //seteamos el comienzo en ese bloque
+                start_encontrado = true;
+                break;
+            }
+        }
+
+        if(start_encontrado)
+        {
+            //verificamos si la catidad de bloques pedida esta disponible secuencialmente desde el comienzo
+            //que encontramos prbiamente.
+            for (int i = 0; i < cant_of_blocks; ++i) {
+                if(!is_block_in_use(bitmap,start + i)) //si no esta usado
+                {
+                    blocks.push_back(start + i); //lo vamos agregando a la lista
+                    T_blocks--; //y lo restamos de la cantidad de bloques a buscar
+                }else{
+                    start = start + i; // cambiamos el comienzo para volver a buscar el siguente primer bloque libre a partir de alli
+                    T_blocks = cant_of_blocks; //volvemos a setear el total de bloques = cantidad de bloques a buscar
+                    blocks.clear(); //limpiamos la lista de los bloques que teniamos hasta el momento
+                    break; //paramos el ciclo para que todo comience de nuevo
+                }
+            }
+        }else{
+            blocks.clear(); //limpiamos la lista por si habian datos guardados
+            blocks.push_back(-1); //seteamos el primer valor: -1 para saber que no se pudo encontrar una secuencia de bloques libres de la cantidad especificada
+            break;
+        }
+    }
+    return blocks;
+}
+
+
+void set_blocks_in_use(char *bitmap, vector<int> blocks)
+{
+    for (int i = 0; i < blocks.size(); ++i) {
+        setBlock_use(bitmap,blocks[i]);
+    }
+}
+
+
+void set_blocks_in_unuse(char *bitmap, vector<int> blocks)
+{
+    for (int i = 0; i < blocks.size(); ++i) {
+        setBlock_unuse(bitmap,blocks[i]);
+    }
 }

@@ -67,7 +67,16 @@ void FileSys::exCommand(QString command_line)
                             QString size_disk = commands.at(1);
                             QString size_block = commands.at(2);
 
-                            createDisk((char*)(name_disk.toStdString().c_str()),size_disk.toInt(),size_block.toInt());
+                            SuperBlock SB = createDisk((char*)(name_disk.toStdString().c_str()),size_disk.toInt(),size_block.toInt());
+
+                            ui->listTerm->appendPlainText("Disco " + QString(SB.name) + " creado!");
+                            ui->listTerm->appendPlainText("-> Size: " + QString::number(SB.size));
+                            ui->listTerm->appendPlainText("-> Size of block: " + QString::number(SB.sizeofblock));
+                            ui->listTerm->appendPlainText("-> Blocks: " + QString::number(SB.cantofblock));
+                            ui->listTerm->appendPlainText("-> Inodes: " + QString::number(SB.cantofinode));
+                            ui->listTerm->appendPlainText("-> Free spcae: " + QString::number(SB.freespace));
+                            ui->listTerm->appendPlainText("-> Free inodes: " + QString::number(SB.freeinode));
+
                             disks.push_back(name_disk);
                         }else{
                             ui->listTerm->appendPlainText(fdisk_commands_empty);
@@ -205,13 +214,16 @@ void FileSys::mountDisk(QString disk_name)
     //probando cambiar el filetable
     /*//si funciona.
     ofstream output_file((disks_path + disk_name + format).toStdString().c_str(), ios::in | ios::out | ios::binary);
-    output_file.seekp(start_filetable + sizeof(FileData));
+    output_file.seekp(start_filetable + sizeof(FileData));*
     strcpy(file_data_array[1]->name,"Hola");
     file_data_array[1]->index_file = 1;
 
-    output_file.write((char*)file_data_array[1],sizeof(FileData));
+//    output_file.write((char*)file_data_array[1],sizeof(FileData));
 
-    output_file.close();*/
+//    output_file.close();
+
+    write((disks_path + disk_name + format).toStdString(),(char*)file_data_array[1],start_filetable + sizeof(FileData),sizeof(FileData));
+    */
 }
 
 void FileSys::listDisks()
@@ -254,7 +266,7 @@ void FileSys::deleteDisk(QString disk_name)
 
 void FileSys::showInfoDisk(QString disk_name)
 {
-    if(existDisk(disk_name))
+    if(existDisk(disk_name)>=0)
     {
         ifstream in((disks_path + disk_name + format).toStdString().c_str(), ios::in | ios:: out | ios::binary);
 
@@ -277,16 +289,82 @@ void FileSys::showInfoDisk(QString disk_name)
         cout<<"Size of Block: "<<SB.sizeofblock<<endl;
 
         ui->listTerm->appendPlainText("Information Disk: " + QString(SB.name));
-        ui->listTerm->appendPlainText("Size: " + QString::number(SB.size) + " bytes");
-        ui->listTerm->appendPlainText("Free Space: " + QString::number(SB.freespace) + " bytes");
-        ui->listTerm->appendPlainText("Size of block: " + QString::number(SB.sizeofblock) + " bytes");
-        ui->listTerm->appendPlainText("blocks: " + QString::number(SB.cantofblock));
-        ui->listTerm->appendPlainText("Free blocks: " + QString::number(SB.freeblock));
-        ui->listTerm->appendPlainText("inodes: " + QString::number(SB.cantofinode));
+        ui->listTerm->appendPlainText("-> Size: " + QString::number(SB.size) + " bytes");
+        ui->listTerm->appendPlainText("-> Free Space: " + QString::number(SB.freespace) + " bytes");
+        ui->listTerm->appendPlainText("-> Size of block: " + QString::number(SB.sizeofblock) + " bytes");
+        ui->listTerm->appendPlainText("-> Blocks: " + QString::number(SB.cantofblock));
+        ui->listTerm->appendPlainText("-> Free blocks: " + QString::number(SB.freeblock));
+        ui->listTerm->appendPlainText("-> Inodes: " + QString::number(SB.cantofinode));
+        ui->listTerm->appendPlainText("-> Free inodes: " + QString::number(SB.freeinode));
 
     }else{
         cout<<"no existe el disco"<<endl;
     }
+}
+
+void FileSys::mkfile(string name, int size)
+{
+    double size_bytes = size*pow(1024,2);
+    double bloques_data = ceil(size_bytes/Super_Block.sizeofblock);
+    double Total_blocks = getTotalBlocksToUse(size_bytes,Super_Block.sizeofblock);
+    string T_name = (disks_path + mounted_disk + format).toStdString();
+
+
+    if(Total_blocks <= Super_Block.freeblock && Super_Block.freeinode > 0)
+    {
+        char *buffer = new char[Super_Block.sizeofblock];
+        memset(buffer,'F',Super_Block.sizeofblock);
+        vector<int> blocks = getFreeBlocks(bitmap,Super_Block.cantofblock,Total_blocks);
+        vector<int> inode = getFreeBlocks(bitmap_inodes,Super_Block.cantofinode,1);
+
+        for (int i = 0; i < Super_Block.cantofinode; ++i) {
+            if(file_data_array[i]->index_file==-1)
+            {
+                strcpy(file_data_array[i]->name,name.c_str());
+                file_data_array[i]->index_file = inode[0];
+                write(T_name,(char*)file_data_array[i],start_filetable + i*sizeof(FileData),sizeof(FileData));
+                break;
+            }
+        }
+
+        for (int i = 0; i < bloques_data; ++i) {
+            write(T_name,buffer,start_datablocks + blocks[i]*(Super_Block.sizeofblock),Super_Block.sizeofblock);
+        }
+
+        //comenzar en bloques_data
+        //guardar inodo, con sus apuntadores
+        Inode new_inode;
+        buffer = new char[sizeof(Inode)];
+        read(T_name, buffer,start_inodes + inode[0]*sizeof(Inode),sizeof(Inode));
+        memcpy(&new_inode,buffer,sizeof(Inode));
+        new_inode.blockuse = Total_blocks;
+        new_inode.filesize = size_bytes;
+
+        //setear las direcciones de los bloques en el inode
+
+        double Total_blocks_inodes = Total_blocks - bloques_data;
+        for (int i = 0; i < 10; ++i) {
+            new_inode.directos[i] = blocks[0];
+            Total_blocks_inodes--;
+        }
+
+        while (Total_blocks_inodes>0) {
+
+        }
+
+        int x = Super_Block.sizeofblock/4;
+        int Directos[x];
+        for (int i = 0; i < x; ++i) {
+
+        }
+
+        //guardar bitmaps
+
+        ui->listTerm->appendPlainText("Archivo creado!");
+    }else{
+        ui->listTerm->appendPlainText("No hay espacio sificiente en el disco!");
+    }
+
 }
 
 void FileSys::on_txtcommandLine_returnPressed()

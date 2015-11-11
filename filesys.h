@@ -79,6 +79,13 @@ private:
      * @param disk_name
      */
     void showInfoDisk(QString disk_name);
+
+    /**
+     * @brief mkfile crea un archivo con caracteres random
+     * @param name nombre del archivo
+     * @param size tamanio en MB
+     */
+    void mkfile(string name,int size);
 };
 
 #endif // FILESYS_H
