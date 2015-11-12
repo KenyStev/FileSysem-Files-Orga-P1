@@ -107,7 +107,7 @@ SuperBlock createDisk(char name[],double size_disk, int size_block){
     Inode inodes;
     inodes.filesize = -1;
     inodes.blockuse = -1;
-    memset(inodes.directos,-1,sizeof(int)*10); //10 inodos directos
+    memset(inodes.directos,-1,sizeof(double)*10); //10 inodos directos
     inodes.indirectossimples = -1;
     inodes.indirectosdobles = -1;
     strcpy(inodes.permisos,"----------");
@@ -148,27 +148,43 @@ void setBlock_unuse(char* bitmap, int blocknum){
 }
 
 
-double getTotalBlocksToUse(double file_size, int block_size)
+vector<double> getTotalBlocksToUse(double file_size, int block_size)
 {
-    int x = block_size/4;
+    vector<double> T_blocks;
+    int x = block_size/8;
     double blocks_data = ceil(file_size/block_size);
     double extra_blocks = 0;
 
-    if(blocks_data <= 10){
-        extra_blocks = 0;`
-    }else if(blocks_data <= (10 + x)){
+    if(blocks_data <= 10){ //case: 0
+        extra_blocks = 0;
+        T_blocks.push_back(0);
+        T_blocks.push_back(ceil(file_size/block_size)); //cuantos bloques de data los Directos simples uso? index: 1
+    }else if(blocks_data <= (10 + x)){ //case: 1
         extra_blocks = 1;
-    }else if(blocks_data <= (10 + x + pow(x,2))){
+        T_blocks.push_back(1);
+        T_blocks.push_back(blocks_data-10); //cuantos bloques de data va a usar el IS? index: 1
+    }else if(blocks_data <= (10 + x + pow(x,2))){ //case: 2
         double blocks_temp = blocks_data - (10 + x);
-        extra_blocks = blocks_temp/x + 2;
+        extra_blocks = ceil(blocks_temp/x) + 2;
+        T_blocks.push_back(2);
+        T_blocks.push_back(x);
+        T_blocks.push_back(ceil(blocks_temp/x)); //cuantos IS va a usar el ID? index: 2
+        T_blocks.push_back(blocks_temp);        //cuantos bloques de data van a usar los IS del ID? index: 3
     }else if(blocks_data <= (10 + x + pow(x,2) + pow(x,3))){
         double blocks_temp = blocks_data - (10 + x + pow(x,2));
-        extra_blocks = ceil(blocks_temp/(pow(x,2))) + ceil(blocks_temp/x ) + 3 + x;//(blocks_temp*(1+x))/(pow(x,2)) + 3 + x;//blocks_temp/(pow(x,2)) + blocks_temp/x + 3;
+        extra_blocks = ceil(blocks_temp/(pow(x,2))) + ceil(blocks_temp/x) + 3 + x;//(blocks_temp*(1+x))/(pow(x,2)) + 3 + x;//blocks_temp/(pow(x,2)) + blocks_temp/x + 3;
+        T_blocks.push_back(3);
+        T_blocks.push_back(ceil(blocks_temp/x)); //cuantos ID va usar el IT? index: 1
+        T_blocks.push_back(ceil(blocks_temp/(pow(x,2)))); //cuantos IS van a usar los ID del IT? index: 2
+        T_blocks.push_back(blocks_temp); //cuantos bloques de data van a usar los Is de los ID del IT? index: 3
     }else{
-        return -1;
+//        return -1;
+        T_blocks.push_back(-1);
     }
 
-    return ceil(blocks_data + extra_blocks);
+//    return ceil(blocks_data + extra_blocks);
+    T_blocks.push_back(ceil(blocks_data + extra_blocks));
+    return T_blocks;
 }
 
 
@@ -193,31 +209,36 @@ void read(string disk_name, char *buffer, double start, double bytes_to_read)
 }
 
 
-vector<int> getFreeBlocks(char *bitmap, double size_bitmap, double cant_of_blocks)
+vector<double> getFreeBlocks(char *bitmap, double size_bitmap, double cant_of_blocks)
 {
-    vector<int> blocks;
-    for (int i = 0; i < size_bitmap; ++i) {
+    vector<double> blocks;
+    for (double i = 0; i < size_bitmap; ++i) {
         if(cant_of_blocks==0) break;
         if(!is_block_in_use(bitmap,i))
         {
             blocks.push_back(i);
             cant_of_blocks--;
-            setBlock_use(bitmap,i);
+            setBlock_use(bitmap,i); // lo cambiamos a usado
         }
+    }
+    if(blocks.size() < cant_of_blocks)
+    {
+        blocks.clear();
+        blocks.push_back(-1);
     }
     return blocks;
 }
 
 
-vector<int> getFreeSequentialBlocks(char *bitmap, double size_bitmap, double cant_of_blocks)
+vector<double> getFreeSequentialBlocks(char *bitmap, double size_bitmap, double cant_of_blocks)
 {
-    vector<int> blocks;
+    vector<double> blocks;
     double T_blocks = cant_of_blocks; // Total de bloques a buscar
     double start=0; //comienza a buscar en 0
     while (T_blocks>0) { //mientras el total de bloques a buscar sea mayor que cero, sequira buscando
         bool start_encontrado=false;
         //recorremos el mapa de bits hasta encontrar el primer bloque libre
-        for (int i = start; i < size_bitmap; ++i) {
+        for (double i = start; i < size_bitmap; ++i) {
             if(!is_block_in_use(bitmap,i)) //si el bloque no esta usado
             {
                 start = i; //seteamos el comienzo en ese bloque
@@ -265,4 +286,123 @@ void set_blocks_in_unuse(char *bitmap, vector<int> blocks)
     for (int i = 0; i < blocks.size(); ++i) {
         setBlock_unuse(bitmap,blocks[i]);
     }
+}
+
+
+void writeInodesBlocks(string disk_name, vector<double> data_index, vector<double> inodes_index, vector<double> how_many, int size_block, Inode *inode, double start)
+{
+    double iterate = 10;
+    int x = size_block/8;
+
+    double *IS = new double[x];
+    double *ID = new double[x];
+    double *ID_IS = new double[x];
+    double *IT = new double[x];
+    double *IT_ID = new double[x];
+    double *IT_ID_IS = new double[x];
+
+    memset(IS,-1,x);
+    memset(ID,-1,x);
+    memset(ID_IS,-1,x);
+    memset(IT,-1,x);
+    memset(IT_ID,-1,x);
+    memset(IT_ID_IS,-1,x);
+
+//    ofstream out(disk_name.c_str(),ios::in | ios::out | ios::binay);
+/*
+    switch ((int)how_many[0]) {
+        case 3: //IT
+            for (int i = 0; i < how_many[3]; ++i) {
+
+            }
+
+        case 2: //ID
+            inode->indirectosdobles = inodes_index[0];
+            inodes_index.erase(inodes_index.begin());
+            for (int i = 0; i < how_many[1]; ++i) {
+                ID[i] = inodes_index[i];
+            }
+            for (int i = 0; i < how_many[1]; ++i) {
+                inodes_index.erase(inodes_index.begin());
+            }
+
+            write(disk_name,(char*)IS,inodes_index[0]*size_block,size_block);
+        case 1: //IS
+            inode->indirectossimples = inodes_index[0];
+            for (int i = 0; i < how_many[1]; ++i) {
+                IS[i] = data_index[iterate++];
+            }
+            write(disk_name,(char*)IS,inodes_index[0]*size_block,size_block);
+//            inodes_index.erase(inodes_index.begin());
+        break;
+    }*/
+
+    if(how_many[0]>=1) //IS
+    {
+        inode->indirectossimples = inodes_index[0];
+        cout<<"IS en: "<<inode->indirectossimples<<endl;
+        for (int i = 0; i < how_many[1]; ++i) {
+            IS[i] = data_index[iterate++];
+        }
+        write(disk_name,(char*)IS,inode->indirectossimples*size_block,size_block);
+        inodes_index.erase(inodes_index.begin()); //borramos del vector el que ya fue usado
+    }
+
+    if(how_many[0]>=2) //ID
+    {
+        inode->indirectosdobles = inodes_index[0];
+        cout<<"ID en: "<<inode->indirectosdobles<<endl;
+        inodes_index.erase(inodes_index.begin());
+        cout<<"seteando IS del ID en:!"<<endl;
+        for (int i = 0; i < how_many[2]; ++i) {
+            ID[i] = inodes_index[i];
+            cout<<"- "<<ID[i]<<endl;
+        }
+        for (int i = 0; i < how_many[2]; ++i) {
+            inodes_index.erase(inodes_index.begin());
+        }
+
+        int d_b = how_many[3];
+        for (int j = 0; j < how_many[2]; ++j) {
+            memset(ID_IS,-1,x);
+            cout<<"seteando data para IS: "<<j<<endl;
+            for (int i = 0; i < x; ++i) {
+                if(d_b>0)
+                {
+                    ID_IS[i] = data_index[iterate++];
+                    d_b--;
+                    cout<<"- "<<ID_IS[i]<<endl;
+                }else{
+                    break;
+                }
+            }
+            write(disk_name,(char*)ID_IS,ID[j]*size_block,size_block);
+        }
+        write(disk_name,(char*)ID,(inode->indirectosdobles)*size_block,size_block);
+    }
+
+    Inode ino;
+    double *buf = new double[x];
+    read(disk_name,(char*)buf,inode->indirectossimples*size_block,size_block);
+    memcpy(&ino,buf,size_block);
+
+    cout<<"Leido del Disco IS!"<<endl;
+    for (int i = 0; i < x; ++i) {
+        cout<<"- "<<buf[i]<<endl;
+    }
+
+    read(disk_name,(char*)buf,inode->indirectosdobles*size_block,size_block);
+    memcpy(&ino,buf,size_block);
+    cout<<"Leido del Disco ID!"<<endl;
+    for (int i = 0; i < x; ++i) {
+        cout<<"- "<<buf[i]<<endl;
+        double *buf2 = new double[x];
+        read(disk_name,(char*)buf2,buf[i]*size_block,size_block);
+        for (int j = 0; j < x; ++j) {
+            cout<<"IS del ID"<<endl;
+            cout<<"- "<<buf2[j]<<endl;
+        }
+    }
+
+//    out.close();
 }

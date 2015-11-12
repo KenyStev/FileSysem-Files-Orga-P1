@@ -18,27 +18,28 @@ using namespace std;
 
 struct SuperBlock {
     double size;
-    int cantofblock;
-    int freeblock;
+    double freeblock;
     double freespace;
+    double freeinode;
+    int cantofblock;
     int cantofinode;
-    int freeinode;
     int sizeofblock;
     char name[10];
     char endsb [3];
 };
 
 struct Inode{
-    int filesize;
-    int blockuse;
-    int directos[10];
-    int indirectossimples;
-    int indirectosdobles;
+    double filesize;
+    double blockuse;
+    double directos[10];
+    double indirectossimples;
+    double indirectosdobles;
+    double indirectostriples;
     char permisos[10];
 };
 
 struct FileData{
-    int index_file;
+    double index_file;
     char name[50];
 };
 
@@ -59,7 +60,7 @@ SuperBlock createDisk(char name[],double size_disk, int size_block);
  * @param size_block tamanio del bloque en bytes
  * @return numero de bloques calculados para guardar todo el archivo
  */
-double getTotalBlocksToUse(double file_size, int size_block);
+vector<double> getTotalBlocksToUse(double file_size, int size_block);
 
 /**
  * @brief is_block_in_use
@@ -101,12 +102,15 @@ void write(string disk_name,char *buffer, double start, double bytes_to_write);
  */
 void read(string disk_name, char *buffer, double start, double bytes_to_write);
 
+//pendiente
+void writeInodesBlocks(string disk_name, vector<double> data_index, vector<double> inodes_index, vector<double> how_many,int size_block,Inode *inode, double start);
+
 /**
  * @brief getFreeBlocks
  * @param cant_of_blocks cantidad de bloques a asignarles una posicion en el disco
  * @return un vector de tamanio cant_of_blocks con las direcciones de los bloques libres donde se podra guardar el archivo
  */
-vector<int> getFreeBlocks(char *bitmap, double size_bitmap, double cant_of_blocks);
+vector<double> getFreeBlocks(char *bitmap, double size_bitmap, double cant_of_blocks);
 
 /**
  * @brief getFreeSequentialBlocks
@@ -115,7 +119,7 @@ vector<int> getFreeBlocks(char *bitmap, double size_bitmap, double cant_of_block
  * donde se podra guardar el archivo, si no hay la cantidad de bloques especificada en forma secuencial, entonces retorna
  * el vector con la primer posicion: -1
  */
-vector<int> getFreeSequentialBlocks(char *bitmap, double size_bitmap, double cant_of_blocks);
+vector<double> getFreeSequentialBlocks(char *bitmap, double size_bitmap, double cant_of_blocks);
 
 /**
  * @brief set_blocks_in_use setea los blocks especificados en el vector es estado ocupado: 1
