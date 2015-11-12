@@ -158,25 +158,28 @@ vector<double> getTotalBlocksToUse(double file_size, int block_size)
     if(blocks_data <= 10){ //case: 0
         extra_blocks = 0;
         T_blocks.push_back(0);
-        T_blocks.push_back(ceil(file_size/block_size)); //cuantos bloques de data los Directos simples uso? index: 1
+        T_blocks.push_back(ceil(file_size/block_size));   //cuantos bloques de data los Directos simples uso? index: 1
     }else if(blocks_data <= (10 + x)){ //case: 1
         extra_blocks = 1;
         T_blocks.push_back(1);
-        T_blocks.push_back(blocks_data-10); //cuantos bloques de data va a usar el IS? index: 1
+        T_blocks.push_back(blocks_data-10);               //cuantos bloques de data va a usar el IS? index: 1
     }else if(blocks_data <= (10 + x + pow(x,2))){ //case: 2
         double blocks_temp = blocks_data - (10 + x);
         extra_blocks = ceil(blocks_temp/x) + 2;
         T_blocks.push_back(2);
-        T_blocks.push_back(x);
-        T_blocks.push_back(ceil(blocks_temp/x)); //cuantos IS va a usar el ID? index: 2
-        T_blocks.push_back(blocks_temp);        //cuantos bloques de data van a usar los IS del ID? index: 3
-    }else if(blocks_data <= (10 + x + pow(x,2) + pow(x,3))){
+        T_blocks.push_back(x);                            //cuantos bloques de data va a usar el IS? index: 1
+        T_blocks.push_back(ceil(blocks_temp/x));          //cuantos IS va a usar el ID? index: 2
+        T_blocks.push_back(blocks_temp);                  //cuantos bloques de data van a usar los IS del ID? index: 3
+    }else if(blocks_data <= (10 + x + pow(x,2) + pow(x,3))){ //case: 3
         double blocks_temp = blocks_data - (10 + x + pow(x,2));
         extra_blocks = ceil(blocks_temp/(pow(x,2))) + ceil(blocks_temp/x) + 3 + x;//(blocks_temp*(1+x))/(pow(x,2)) + 3 + x;//blocks_temp/(pow(x,2)) + blocks_temp/x + 3;
         T_blocks.push_back(3);
-        T_blocks.push_back(ceil(blocks_temp/x)); //cuantos ID va usar el IT? index: 1
-        T_blocks.push_back(ceil(blocks_temp/(pow(x,2)))); //cuantos IS van a usar los ID del IT? index: 2
-        T_blocks.push_back(blocks_temp); //cuantos bloques de data van a usar los Is de los ID del IT? index: 3
+        T_blocks.push_back(x);                            //cuantos bloques de data va a usar el IS? index: 1
+        T_blocks.push_back(x);                            //cuantos IS va a usar el ID? index: 2
+        T_blocks.push_back(pow(x,2));                     //cuantos bloques de data van a usar los IS del ID? index: 3
+        T_blocks.push_back(ceil(blocks_temp/(pow(x,2)))); //cuantos ID va usar el IT? index: 4
+        T_blocks.push_back(ceil(blocks_temp/x));          //cuantos IS van a usar los ID del IT? index: 5
+        T_blocks.push_back(blocks_temp);                  //cuantos bloques de data van a usar los Is de los ID del IT? index: 6
     }else{
 //        return -1;
         T_blocks.push_back(-1);
@@ -308,35 +311,6 @@ void writeInodesBlocks(string disk_name, vector<double> data_index, vector<doubl
     memset(IT_ID,-1,x);
     memset(IT_ID_IS,-1,x);
 
-//    ofstream out(disk_name.c_str(),ios::in | ios::out | ios::binay);
-/*
-    switch ((int)how_many[0]) {
-        case 3: //IT
-            for (int i = 0; i < how_many[3]; ++i) {
-
-            }
-
-        case 2: //ID
-            inode->indirectosdobles = inodes_index[0];
-            inodes_index.erase(inodes_index.begin());
-            for (int i = 0; i < how_many[1]; ++i) {
-                ID[i] = inodes_index[i];
-            }
-            for (int i = 0; i < how_many[1]; ++i) {
-                inodes_index.erase(inodes_index.begin());
-            }
-
-            write(disk_name,(char*)IS,inodes_index[0]*size_block,size_block);
-        case 1: //IS
-            inode->indirectossimples = inodes_index[0];
-            for (int i = 0; i < how_many[1]; ++i) {
-                IS[i] = data_index[iterate++];
-            }
-            write(disk_name,(char*)IS,inodes_index[0]*size_block,size_block);
-//            inodes_index.erase(inodes_index.begin());
-        break;
-    }*/
-
     if(how_many[0]>=1) //IS
     {
         inode->indirectossimples = inodes_index[0];
@@ -353,7 +327,7 @@ void writeInodesBlocks(string disk_name, vector<double> data_index, vector<doubl
         inode->indirectosdobles = inodes_index[0];
         cout<<"ID en: "<<inode->indirectosdobles<<endl;
         inodes_index.erase(inodes_index.begin());
-        cout<<"seteando IS del ID en:!"<<endl;
+        cout<<"seteando IS del ID en: "<<endl;
         for (int i = 0; i < how_many[2]; ++i) {
             ID[i] = inodes_index[i];
             cout<<"- "<<ID[i]<<endl;
@@ -381,28 +355,94 @@ void writeInodesBlocks(string disk_name, vector<double> data_index, vector<doubl
         write(disk_name,(char*)ID,(inode->indirectosdobles)*size_block,size_block);
     }
 
+    if(how_many[0]>=3) //IT
+    {
+        inode->indirectostriples = inodes_index[0];
+        cout<<"IT en: "<<inode->indirectostriples<<endl;
+        inodes_index.erase(inodes_index.begin());
+        cout<<"seteando ID del IT en: "<<"cant: "<<how_many[4]<<endl;
+        for (int i = 0; i < how_many[4]; ++i) {
+            IT[i] = inodes_index[i];
+            cout<<"- "<<IT[i]<<endl;
+        }
+        for (int i = 0; i < how_many[4]; ++i) {
+            inodes_index.erase(inodes_index.begin());
+        }
+
+        int is_b = how_many[5];
+        int d_b = how_many[6];
+        for (int j = 0; j < how_many[4]; ++j) {
+            memset(IT_ID,-1,x);
+            cout<<"seteando IS de ID de IT: "<<j<<endl;
+            for (int i = 0; i < x; ++i) {
+                if(is_b>0)
+                {
+                    IT_ID[i] = inodes_index[0];
+                    is_b--;
+                    cout<<"- "<<IT_ID[i]<<endl;
+                    inodes_index.erase(inodes_index.begin());
+                }else{
+                    break;
+                }
+                memset(IT_ID_IS,-1,x);
+                cout<<"seteando data para IS de ID de IT: "<<j<<endl;
+                for (int k = 0; k < x; ++k) {
+                    if(d_b>0)
+                    {
+                        IT_ID_IS[k] = data_index[iterate++];
+                        d_b--;
+                        cout<<"- "<<IT_ID_IS[k]<<endl;
+                    }else{
+                        break;
+                    }
+                }
+                write(disk_name,(char*)IT_ID_IS,IT_ID[i]*size_block,size_block);
+            }
+            write(disk_name,(char*)IT_ID,IT[j]*size_block,size_block);
+        }
+        write(disk_name,(char*)IT,inode->indirectostriples*size_block,size_block);
+    }
+
     Inode ino;
     double *buf = new double[x];
     read(disk_name,(char*)buf,inode->indirectossimples*size_block,size_block);
     memcpy(&ino,buf,size_block);
 
-    cout<<"Leido del Disco IS!"<<endl;
+    cout<<"Leido del Disco IS en!: "<<inode->indirectossimples<<endl;
     for (int i = 0; i < x; ++i) {
-        cout<<"- "<<buf[i]<<endl;
+        cout<<"data en- "<<buf[i]<<endl;
     }
 
     read(disk_name,(char*)buf,inode->indirectosdobles*size_block,size_block);
     memcpy(&ino,buf,size_block);
-    cout<<"Leido del Disco ID!"<<endl;
+    cout<<"Leido del Disco ID en!: "<<inode->indirectosdobles<<endl;
     for (int i = 0; i < x; ++i) {
-        cout<<"- "<<buf[i]<<endl;
+        cout<<"IS en- "<<buf[i]<<endl;
         double *buf2 = new double[x];
         read(disk_name,(char*)buf2,buf[i]*size_block,size_block);
+//        cout<<"IS del ID"<<endl;
         for (int j = 0; j < x; ++j) {
-            cout<<"IS del ID"<<endl;
-            cout<<"- "<<buf2[j]<<endl;
+            cout<<"data en:- "<<buf2[j]<<endl;
         }
     }
 
-//    out.close();
+    read(disk_name,(char*)buf,inode->indirectostriples*size_block,size_block);
+    memcpy(&ino,buf,size_block);
+    cout<<"Leido del Disco IT en!: "<<inode->indirectostriples<<endl;
+    for (int i = 0; i < x; ++i) {
+        cout<<"ID en- "<<buf[i]<<endl;
+        double *buf2 = new double[x];
+        read(disk_name,(char*)buf2,buf[i]*size_block,size_block);
+//        cout<<"ID del IT"<<endl;
+        for (int j = 0; j < x; ++j) {
+            cout<<"IS en- "<<buf2[j]<<endl;
+            double *buf3 = new double[x];
+            read(disk_name,(char*)buf3,buf2[i]*size_block,size_block);
+//            cout<<"IS del ID del IT"<<endl;
+            for (int k = 0; k < x; ++k) {
+                cout<<"data en- "<<buf3[k]<<endl;
+            }
+        }
+    }
+
 }
