@@ -25,6 +25,7 @@ private:
 //    ofstream *diskManager = NULL;
     QString mounted_disk = "";
     bool is_mounted_disk=false;
+    Inode current_inode;
     SuperBlock Super_Block;
     vector<FileData*> file_data_array;
     char *bitmap;
@@ -43,6 +44,10 @@ private:
                              "\nfdisk d [name_disk] : delete a disk";
     QString fdisk_commands_empty = "we expect: fdisk n [name_disk] [size_disk] [size_per_block]";
     QString last_command_line = "";
+
+    int searchInFileTable(string name);
+    int searchInodeInFileTable(string name);
+    int get_NextFree_FileTable();
 
     /**
      * @brief exCommand
@@ -86,6 +91,8 @@ private:
      * @param size tamanio en MB
      */
     void mkfile(string name,int size);
+
+    void cd(string dir_to_move);
 };
 
 #endif // FILESYS_H

@@ -206,6 +206,11 @@ void FileSys::mountDisk(QString disk_name)
 
             start_inodes = in.tellg(); //guardando el lugar donde comienzan los inodos
 
+            //montando el inodo root
+            char *root_buffer = new char[sizeof(Inode)];
+            in.read(root_buffer,sizeof(Inode));
+            memcpy(&current_inode,root_buffer,sizeof(Inode));
+
             cout<<"FD_root_name: "<<file_data_array[0]->name<<endl;
             cout<<"FD_root_index_inode: "<<file_data_array[0]->index_file<<endl;
             cout<<"FD_1: "<<file_data_array[1]->name<<endl;
@@ -321,7 +326,10 @@ void FileSys::mkfile(string name, int size)
     if(Total_blocks[0] >= 0 && Super_Block.freeinode > 0)
     {
         char *buffer = new char[Super_Block.sizeofblock];
-        memset(buffer,'N',Super_Block.sizeofblock);
+//        memset(buffer,'N',Super_Block.sizeofblock);
+        for (int i = 0; i < Super_Block.sizeofblock; ++i) {
+            buffer[i] = rand()%25 + 65;
+        }
         vector<double> blocks = getFreeBlocks(bitmap,Super_Block.cantofblock,Total_blocks[Total_blocks.size()-1]);
         vector<double> inode = getFreeBlocks(bitmap_inodes,Super_Block.cantofinode,1);
 
@@ -333,16 +341,18 @@ void FileSys::mkfile(string name, int size)
         if(blocks[0]>0) // valida que hallan la cantidad de bloques suficientes, para que quepa en el disco
         {
             //guarda el filetable
-            for (int i = 0; i < Super_Block.cantofinode; ++i) {
-                if(file_data_array[i]->index_file==-1)
-                {
-                    strcpy(file_data_array[i]->name,name.c_str());
-                    file_data_array[i]->index_file = inode[0];
-                    write(T_name,(char*)file_data_array[i],start_filetable + i*sizeof(FileData),sizeof(FileData));
-                    break;
-                }
-            }
+//            for (int i = 0; i < Super_Block.cantofinode; ++i) {
+//                if(file_data_array[i]->index_file==-1)
+//                {
+                    int index = get_NextFree_FileTable();
+                    strcpy(file_data_array[index]->name,name.c_str());
+                    file_data_array[index]->index_file = inode[0];
+                    write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
+//                    break;
+//                }
+//            }
 
+            //escribe el archivo
             double file_size_bytes_temp = size_bytes;
             for (double i = 0; i < bloques_data-1; ++i) {
                 write(T_name,buffer,blocks[i]*(Super_Block.sizeofblock),Super_Block.sizeofblock);
@@ -362,7 +372,7 @@ void FileSys::mkfile(string name, int size)
             buffer = new char[sizeof(Inode)];
             read(T_name, buffer,start_inodes + inode[0]*sizeof(Inode),sizeof(Inode));
             memcpy(&new_inode,buffer,sizeof(Inode));
-            new_inode.blockuse = Total_blocks[Total_blocks.size()-1];
+            new_inode.blockuse = bloques_data;
             new_inode.filesize = size_bytes;
             strcpy(new_inode.permisos,"-rwxrwxrwx");
 
@@ -429,4 +439,37 @@ void FileSys::mkfile(string name, int size)
 void FileSys::on_txtcommandLine_returnPressed()
 {
     exCommand(ui->txtcommandLine->text());
+}
+
+int FileSys::searchInFileTable(string name)
+{
+    for (int i = 0; i < file_data_array.size(); ++i) {
+        if(strcpy(file_data_array[i]->name,name.c_str())==0)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int FileSys::searchInodeInFileTable(string name)
+{
+    for (int i = 0; i < file_data_array.size(); ++i) {
+        if(strcpy(file_data_array[i]->name,name.c_str())==0)
+        {
+            return file_data_array[i]->index_file;
+        }
+    }
+    return -1;
+}
+
+int FileSys::get_NextFree_FileTable()
+{
+    for (int i = 0; i < file_data_array.size(); ++i) {
+        if(file_data_array[i]->index_file==-1)
+        {
+            return i;
+        }
+    }
+    return -1;
 }

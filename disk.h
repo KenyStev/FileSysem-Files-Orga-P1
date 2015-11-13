@@ -135,4 +135,7 @@ void set_blocks_in_use(char *bitmap, vector<int> blocks);
  */
 void set_blocks_in_unuse(char *bitmap, vector<int> blocks);
 
+void writeFileTable(char *buffer,int index);
+void memcpybuffer(char *&dest, char *src, int sizeblock, double init , double size_src);
+
 #endif // DISK_H

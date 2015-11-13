@@ -444,5 +444,16 @@ void writeInodesBlocks(string disk_name, vector<double> data_index, vector<doubl
             }
         }
     }
+}
 
+
+
+void memcpybuffer(char *&dest, char *src, int sizeblock, double init , double size_src)
+{
+    memset(dest,0,sizeblock*sizeof(char));
+    for(int i =0; i< sizeblock;i++){
+        if(size_src==init+i)
+            return;
+        dest[i]=src[(int)(init+i)];
+    }
 }
