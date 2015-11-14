@@ -90,7 +90,10 @@ private:
      * @param name nombre del archivo
      * @param size tamanio en MB
      */
+
+    void writeInode(Inode *inode, string disk, char *buffer, double size);
     void mkfile(string name,int size);
+    void mkfile2(string name,int size);
 
     void cd(string dir_to_move);
 };

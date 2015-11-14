@@ -52,6 +52,8 @@ struct FileData{
  */
 SuperBlock createDisk(char name[],double size_disk, int size_block);
 
+double getNextFreeBlock(char *bitmap, double size_bitmap);
+
 /**
  * @brief getTotalBlocksToUse calcula el numero de bloques que se necesitarian para guardar un
  * archivo del tamanio especificado en el parametro, teniendo en cuenta la cantidad de bloques de directos_simples,
@@ -104,6 +106,8 @@ void read(string disk_name, char *buffer, double start, double bytes_to_write);
 
 //pendiente
 void writeInodesBlocks(string disk_name, vector<double> data_index, vector<double> inodes_index, vector<double> how_many,int size_block,Inode *inode, double start);
+
+//void writeInode(Inode inode, char *buffer, double size);
 
 /**
  * @brief getFreeBlocks

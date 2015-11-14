@@ -121,6 +121,12 @@ void FileSys::exCommand(QString command_line)
                 {
                     mkfile(commands.at(0).toStdString(),commands.at(1).toInt());
                 }
+            }else if(main_command == "mkfile2") // crear file form: mkfile [name_file] [tamanio mb]
+            {
+                if(commands.size() == 2 )
+                {
+                    mkfile2(commands.at(0).toStdString(),commands.at(1).toInt());
+                }
             }else if(main_command == "rm") // delete file or dir form: rm [name]
             {
 
@@ -322,6 +328,134 @@ void FileSys::mkfile(string name, int size)
     double bloques_data = ceil(size_bytes/Super_Block.sizeofblock);
     vector<double> Total_blocks = getTotalBlocksToUse(size_bytes,Super_Block.sizeofblock);
     string T_name = (disks_path + mounted_disk + format).toStdString();
+    int index = searchInFileTable(name);
+
+    if(index == -1 && Total_blocks[0] >= 0 && Super_Block.freeinode > 0)
+    {
+        //creando filetable e inodo
+        index = get_NextFree_FileTable();
+        double inode = getNextFreeBlock(bitmap_inodes,Super_Block.cantofinode);
+        strcpy(file_data_array[index]->name,name.c_str());
+        file_data_array[index]->index_file = inode;
+
+        Inode new_inode;
+        char *buffer = new char[sizeof(Inode)];
+        read(T_name, buffer,start_inodes + inode*sizeof(Inode),sizeof(Inode));
+        memcpy(&new_inode,buffer,sizeof(Inode));
+        strcpy(new_inode.permisos,"-rwxrwxrwx");
+
+        //escribiendo filedata en el disco
+        write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
+
+        double size_bytes_temp = size_bytes;
+        double size_to_write = Super_Block.sizeofblock;
+        for (int i = 0; i < bloques_data; ++i) {
+            char *buffer = new char[Super_Block.sizeofblock];
+            for (int i = 0; i < Super_Block.sizeofblock; ++i) {
+                buffer[i] = rand()%25 + 65;
+            }
+            if(size_bytes_temp<size_to_write)
+                size_to_write = size_bytes_temp;
+            size_bytes_temp-=size_to_write;
+            writeInode(&new_inode,T_name,buffer,size_to_write);
+        }
+        //escribiendo inodo en el disco
+        write(T_name,(char*)&new_inode,start_inodes + inode*sizeof(Inode),sizeof(Inode));
+
+        //guardar bitmaps
+        write(T_name,bitmap,start_bitmap,Super_Block.cantofblock/8);
+        write(T_name,bitmap_inodes,start_bitmap_inodes,Super_Block.cantofinode/8);
+
+        //guardar Super Block
+        Super_Block.freeblock -= Total_blocks[Total_blocks.size()-1];
+        (Super_Block.freeinode)--;
+        Super_Block.freespace -= (size_bytes + (Total_blocks[Total_blocks.size()-1] - bloques_data)*Super_Block.sizeofblock);
+        write(T_name,(char*)&Super_Block,0,sizeof(SuperBlock));
+
+        ui->listTerm->appendPlainText("Archivo creado!");
+        cout<<"Archivo creado!"<<endl;
+        cout<<"inodo usado: "<<inode<<endl;
+        cout<<"bloques usados: "<<Total_blocks[Total_blocks.size()-1]<<endl;
+        cout<<"Directos en: "<<endl;
+        for (int i = 0; i < 10; ++i) {
+            cout<<i<<"- "<<(new_inode.directos)[i]<<endl;
+        }
+
+        //lee IS
+        int x = Super_Block.sizeofblock/8;
+        double *buf = new double[x];
+        read(T_name,(char*)buf,new_inode.indirectossimples*Super_Block.sizeofblock,Super_Block.sizeofblock);
+    //    memcpy(&ino,buf,size_block);
+
+        if(new_inode.indirectossimples!=-1)
+        {
+            cout<<"Leido del Disco IS en!: "<<new_inode.indirectossimples<<endl;
+            for (int i = 0; i < x; ++i) {
+                cout<<"data en- "<<buf[i]<<endl;
+    //            if(buf[i]==-1) cout<<"-nan = -1"<<endl;
+            }
+        }
+
+        //lee ID
+        read(T_name,(char*)buf,new_inode.indirectosdobles*Super_Block.sizeofblock,Super_Block.sizeofblock);
+    //    memcpy(&ino,buf,size_block);
+        cout<<"Leido del Disco ID en!: "<<new_inode.indirectosdobles<<endl;
+
+        if(new_inode.indirectosdobles!=-1)
+        {
+            for (int i = 0; i < x; ++i) {
+                cout<<"IS en- "<<buf[i]<<endl;
+                double *buf2 = new double[x];
+                read(T_name,(char*)buf2,buf[i]*Super_Block.sizeofblock,Super_Block.sizeofblock);
+        //        cout<<"IS del ID"<<endl;
+                if(buf[i]!=-1)
+                {
+                    for (int j = 0; j < x; ++j) {
+                        cout<<"data en:- "<<buf2[j]<<endl;
+                    }
+                }
+            }
+        }
+
+        //lee IT
+        read(T_name,(char*)buf,new_inode.indirectostriples*Super_Block.sizeofblock,Super_Block.sizeofblock);
+    //    memcpy(&ino,buf,size_block);
+        cout<<"Leido del Disco IT en!: "<<new_inode.indirectostriples<<endl;
+        if(new_inode.indirectostriples!=-1)
+        {
+            for (int i = 0; i < x; ++i) {
+                cout<<"ID en- "<<buf[i]<<endl;
+                double *buf2 = new double[x];
+                read(T_name,(char*)buf2,buf[i]*Super_Block.sizeofblock,Super_Block.sizeofblock);
+        //        cout<<"ID del IT"<<endl;
+                if(buf[i]!=-1)
+                {
+                    for (int j = 0; j < x; ++j) {
+                        cout<<"IS en- "<<buf2[j]<<endl;
+                        double *buf3 = new double[x];
+                        read(T_name,(char*)buf3,buf2[j]*Super_Block.sizeofblock,Super_Block.sizeofblock);
+            //            cout<<"IS del ID del IT"<<endl;
+                        if(buf2[j]!=-1)
+                        {
+                            for (int k = 0; k < x; ++k) {
+                                cout<<"data en- "<<buf3[k]<<endl;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }else{
+
+    }
+}
+
+void FileSys::mkfile2(string name, int size)
+{
+    double size_bytes = size;//*pow(1024,2);
+    double bloques_data = ceil(size_bytes/Super_Block.sizeofblock);
+    vector<double> Total_blocks = getTotalBlocksToUse(size_bytes,Super_Block.sizeofblock);
+    string T_name = (disks_path + mounted_disk + format).toStdString();
 
     if(Total_blocks[0] >= 0 && Super_Block.freeinode > 0)
     {
@@ -436,9 +570,97 @@ void FileSys::mkfile(string name, int size)
 
 }
 
-void FileSys::on_txtcommandLine_returnPressed()
+void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 {
-    exCommand(ui->txtcommandLine->text());
+    //los permisos deben darsele afuera de esta funcion
+    //el inodo como tal debe guardarse afuera de esta funcion
+    if(inode->filesize==-1) //virgen
+    {
+        inode->filesize = size;
+        inode->blockuse = 1;
+        double block = getNextFreeBlock(bitmap,Super_Block.cantofblock);
+        inode->directos[0] = block;
+        write(disk,buffer,block*Super_Block.sizeofblock,Super_Block.sizeofblock);
+    }else{ //no virgen
+        double used_blocks = inode->filesize/Super_Block.sizeofblock;
+        int x = Super_Block.sizeofblock/8;
+        if((used_blocks - floor(used_blocks))==0) // si los bloques usados estan todos llenos
+        {
+            if(inode->blockuse < 10) //CASE 0:si los bloques de data usados son menorea a los DIRECTOS
+            {
+                double block = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pide bloque libre al bitmap
+                int save_to = inode->blockuse++;    //guardamos el index de la siguente posicion libre de los DIRECTOS
+                inode->directos[save_to] = block;   //guardamos la direccion del bloque en los directos
+                inode->filesize += size;            //aumentamos el filesize del archivo
+                write(disk,buffer,block*Super_Block.sizeofblock,Super_Block.sizeofblock);   //escribimos el bloque de data
+            }else if(inode->blockuse < (10 + x)){   //CASE 1: si bloques de data usados es menor I_SIMPLES mas los anteriores
+                double IS_ptr = inode->indirectossimples;
+                double *IS = new double[x];         //bloque de IS con las direcciones a los bloques de data
+                if(IS_ptr==-1)                      //si aun no hemos utilizado los I_SIMPLES
+                {
+                    IS_ptr = getNextFreeBlock(bitmap,Super_Block.cantofblock); //le pedimos un bloque al bitmap para el IS
+                    inode->indirectossimples = IS_ptr; //actualizamos el inodo
+                    //llenamos el bloque con -1 el bloque
+                    for (int i = 0; i < x; ++i) {
+                        IS[i] = -1;
+                    }
+                }else{ //si ya habiamos utilizado antes el IS solo leemos lo que ya tenia
+                    read(disk,(char*)IS,IS_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                }
+
+                double block = getNextFreeBlock(bitmap,Super_Block.cantofblock); //bloque para la data
+                int save_to = inode->blockuse++ - 10; //sacamos el index en los IS donde guardaremos la direccion del bloque de data
+                IS[save_to] = block;
+
+                //escribimos el bloque de data y el bloque de IS como corresponda
+                write(disk,buffer,block*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                write(disk,(char*)IS,IS_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
+            }else if(inode->blockuse < (10 + x + pow(x,2))){ //CASE 2: si bloques de data usados es menor I_DOBLES mas los anteriores
+                double ID_ptr = inode->indirectosdobles;
+                double *ID = new double[x];
+                double *ID_IS = new double[x];
+                if (ID_ptr==-1) { //si no hemos usado I_DOBLES antes
+                    ID_ptr = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pedimos un bloque para los ID
+                    inode->indirectosdobles = ID_ptr; //actualizamod el inodo
+                    for (int i = 0; i < x; ++i) { //lo inicializamos
+                        ID[i] = -1;
+                    }
+                }else{ //si ya lo habiamos usado solo lo leemos
+                    read(disk,(char*)ID,ID_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                }
+                double b_data_ID = inode->blockuse++ - 10 - x;  //cuantos bloques de DATA tiene el ID?
+                double IS_to_write = b_data_ID/x;               //cuantos IS esta usando para tenerlos?
+                if((IS_to_write - floor(IS_to_write))==0)       //los IS que esta usando ya estan llenos?
+                {
+                    //pide un bloque para añadirlo a los IS que usa el ID
+                    double addIS_toDouble = getNextFreeBlock(bitmap,Super_Block.cantofblock);
+                    ID[(int)IS_to_write] = addIS_toDouble; //lo agrega
+                    for (int i = 0; i < x; ++i) { //lo inicializa con -1
+                        ID_IS[i] = -1;
+                    }
+                    //escribe el ID en el disco
+                    write(disk,(char*)ID,inode->indirectosdobles*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                }else{ //sino, entonces hay espacio aun en el ultimo IS que esta usando el ID
+                    IS_to_write = floor(IS_to_write); //lo redondeamos para abajo para obtener el index de ese IS en el ID
+                    read(disk,(char*)ID_IS,ID[(int)IS_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock); //lemos el IS
+                }
+                int indexInIS = b_data_ID - x*IS_to_write; //sacamos el index siguiente libre en el IS
+
+                double block = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pedimos bloque para la data
+                ID_IS[indexInIS] = block; //lo guardamos el los IS que tiene el ID
+
+                //escribimos el bloque de data y el bloque del IS que pertenece al ID en el disco como corresponde
+                write(disk,buffer,block*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                write(disk,(char*)ID_IS,ID[(int)IS_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock);
+            }else if(inode->blockuse < (10 + x + pow(x,2) + pow(x,3))) //CASE 3: si bloques de data usados es menor I_TRIPLES mas los anteriores
+            {
+
+            }
+        }else{ //si al ultimo bloque le falta por llenarse
+
+        }
+
+    }
 }
 
 int FileSys::searchInFileTable(string name)
@@ -472,4 +694,9 @@ int FileSys::get_NextFree_FileTable()
         }
     }
     return -1;
+}
+
+void FileSys::on_txtcommandLine_returnPressed()
+{
+    exCommand(ui->txtcommandLine->text());
 }

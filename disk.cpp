@@ -101,6 +101,7 @@ SuperBlock createDisk(char name[],double size_disk, int size_block){
     memset(root_inodo.directos,-1,sizeof(int)*10);
     root_inodo.indirectossimples = -1;
     root_inodo.indirectosdobles = -1;
+    root_inodo.indirectostriples = -1;
     strcpy(root_inodo.permisos,"drwxrwxrwx");
     output_file.write(((char*)&root_inodo),inodes_size);
 
@@ -110,6 +111,7 @@ SuperBlock createDisk(char name[],double size_disk, int size_block){
     memset(inodes.directos,-1,sizeof(double)*10); //10 inodos directos
     inodes.indirectossimples = -1;
     inodes.indirectosdobles = -1;
+    inodes.indirectostriples = -1;
     strcpy(inodes.permisos,"----------");
     cout<<"writing Inodes of size: "<<inodes_size*SP.cantofinode<<endl;
     for(int d =1;d<SP.cantofinode;d++){
@@ -147,6 +149,16 @@ void setBlock_unuse(char* bitmap, int blocknum){
     bitmap[indexonbitmap]= bitmap[indexonbitmap] & ~(1<<posinchar);
 }
 
+double getNextFreeBlock(char *bitmap, double size_bitmap)
+{
+    for (int i = 0; i < size_bitmap; ++i) {
+        if (!is_block_in_use(bitmap,i)) {
+            setBlock_use(bitmap,i);
+            return i;
+        }
+    }
+    return -1;
+}
 
 vector<double> getTotalBlocksToUse(double file_size, int block_size)
 {
@@ -304,12 +316,20 @@ void writeInodesBlocks(string disk_name, vector<double> data_index, vector<doubl
     double *IT_ID = new double[x];
     double *IT_ID_IS = new double[x];
 
-    memset(IS,-1,x);
-    memset(ID,-1,x);
-    memset(ID_IS,-1,x);
-    memset(IT,-1,x);
-    memset(IT_ID,-1,x);
-    memset(IT_ID_IS,-1,x);
+    for (int i = 0; i < x; ++i) {
+        IS[i] = -1;
+        ID[i] = -1;
+        ID_IS[i] = -1;
+        IT[i] = -1;
+        IT_ID[i] = -1;
+        IT_ID_IS[i] = -1;
+    }
+//    memset(IS,-1,size_block);
+//    memset(ID,-1,size_block);
+//    memset(ID_IS,-1,size_block);
+//    memset(IT,-1,size_block);
+//    memset(IT_ID,-1,size_block);
+//    memset(IT_ID_IS,-1,size_block);
 
     if(how_many[0]>=1) //IS
     {
@@ -347,7 +367,8 @@ void writeInodesBlocks(string disk_name, vector<double> data_index, vector<doubl
                     d_b--;
                     cout<<"- "<<ID_IS[i]<<endl;
                 }else{
-                    break;
+//                    break;
+                    ID_IS[i] = -1;
                 }
             }
             write(disk_name,(char*)ID_IS,ID[j]*size_block,size_block);
@@ -382,7 +403,8 @@ void writeInodesBlocks(string disk_name, vector<double> data_index, vector<doubl
                     cout<<"- "<<IT_ID[i]<<endl;
                     inodes_index.erase(inodes_index.begin());
                 }else{
-                    break;
+//                    break;
+                    IT_ID[i] = -1;
                 }
                 memset(IT_ID_IS,-1,x);
                 cout<<"seteando data para IS de ID de IT: "<<j<<endl;
@@ -393,7 +415,8 @@ void writeInodesBlocks(string disk_name, vector<double> data_index, vector<doubl
                         d_b--;
                         cout<<"- "<<IT_ID_IS[k]<<endl;
                     }else{
-                        break;
+//                        break;
+                        IT_ID_IS[k] = -1;
                     }
                 }
                 write(disk_name,(char*)IT_ID_IS,IT_ID[i]*size_block,size_block);
@@ -403,50 +426,85 @@ void writeInodesBlocks(string disk_name, vector<double> data_index, vector<doubl
         write(disk_name,(char*)IT,inode->indirectostriples*size_block,size_block);
     }
 
-    Inode ino;
+//    Inode ino;
+
+    //lee IS
     double *buf = new double[x];
     read(disk_name,(char*)buf,inode->indirectossimples*size_block,size_block);
-    memcpy(&ino,buf,size_block);
+//    memcpy(&ino,buf,size_block);
 
-    cout<<"Leido del Disco IS en!: "<<inode->indirectossimples<<endl;
-    for (int i = 0; i < x; ++i) {
-        cout<<"data en- "<<buf[i]<<endl;
-    }
-
-    read(disk_name,(char*)buf,inode->indirectosdobles*size_block,size_block);
-    memcpy(&ino,buf,size_block);
-    cout<<"Leido del Disco ID en!: "<<inode->indirectosdobles<<endl;
-    for (int i = 0; i < x; ++i) {
-        cout<<"IS en- "<<buf[i]<<endl;
-        double *buf2 = new double[x];
-        read(disk_name,(char*)buf2,buf[i]*size_block,size_block);
-//        cout<<"IS del ID"<<endl;
-        for (int j = 0; j < x; ++j) {
-            cout<<"data en:- "<<buf2[j]<<endl;
+    if(inode->indirectossimples!=-1)
+    {
+        cout<<"Leido del Disco IS en!: "<<inode->indirectossimples<<endl;
+        for (int i = 0; i < x; ++i) {
+            cout<<"data en- "<<buf[i]<<endl;
+//            if(buf[i]==-1) cout<<"-nan = -1"<<endl;
         }
     }
 
+    //lee ID
+    read(disk_name,(char*)buf,inode->indirectosdobles*size_block,size_block);
+//    memcpy(&ino,buf,size_block);
+    cout<<"Leido del Disco ID en!: "<<inode->indirectosdobles<<endl;
+
+    if(inode->indirectosdobles!=-1)
+    {
+        for (int i = 0; i < x; ++i) {
+            cout<<"IS en- "<<buf[i]<<endl;
+            double *buf2 = new double[x];
+            read(disk_name,(char*)buf2,buf[i]*size_block,size_block);
+    //        cout<<"IS del ID"<<endl;
+            if(buf[i]!=-1)
+            {
+                for (int j = 0; j < x; ++j) {
+                    cout<<"data en:- "<<buf2[j]<<endl;
+                }
+            }
+        }
+    }
+
+    //lee IT
     read(disk_name,(char*)buf,inode->indirectostriples*size_block,size_block);
-    memcpy(&ino,buf,size_block);
+//    memcpy(&ino,buf,size_block);
     cout<<"Leido del Disco IT en!: "<<inode->indirectostriples<<endl;
-    for (int i = 0; i < x; ++i) {
-        cout<<"ID en- "<<buf[i]<<endl;
-        double *buf2 = new double[x];
-        read(disk_name,(char*)buf2,buf[i]*size_block,size_block);
-//        cout<<"ID del IT"<<endl;
-        for (int j = 0; j < x; ++j) {
-            cout<<"IS en- "<<buf2[j]<<endl;
-            double *buf3 = new double[x];
-            read(disk_name,(char*)buf3,buf2[i]*size_block,size_block);
-//            cout<<"IS del ID del IT"<<endl;
-            for (int k = 0; k < x; ++k) {
-                cout<<"data en- "<<buf3[k]<<endl;
+    if(inode->indirectostriples!=-1)
+    {
+        for (int i = 0; i < x; ++i) {
+            cout<<"ID en- "<<buf[i]<<endl;
+            double *buf2 = new double[x];
+            read(disk_name,(char*)buf2,buf[i]*size_block,size_block);
+    //        cout<<"ID del IT"<<endl;
+            if(buf[i]!=-1)
+            {
+                for (int j = 0; j < x; ++j) {
+                    cout<<"IS en- "<<buf2[j]<<endl;
+                    double *buf3 = new double[x];
+                    read(disk_name,(char*)buf3,buf2[j]*size_block,size_block);
+        //            cout<<"IS del ID del IT"<<endl;
+                    if(buf2[j]!=-1)
+                    {
+                        for (int k = 0; k < x; ++k) {
+                            cout<<"data en- "<<buf3[k]<<endl;
+                        }
+                    }
+                }
             }
         }
     }
 }
 
+//void writeInode(Inode *inode, char *buffer, double size)
+//{
+//    //los permisos deben darsele afuera de esta funcion
+//    if(inode->filesize==-1) //virgen
+//    {
+//        inode->filesize = size;
+//        inode->blockuse = 1;
+////        getNextFreeBlock(bi)
+//    }else{ //no virgen
 
+//    }
+//}
 
 void memcpybuffer(char *&dest, char *src, int sizeblock, double init , double size_src)
 {
