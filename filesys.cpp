@@ -633,8 +633,8 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                 if((IS_to_write - floor(IS_to_write))==0)       //los IS que esta usando ya estan llenos?
                 {
                     //pide un bloque para añadirlo a los IS que usa el ID
-                    double addIS_toDouble = getNextFreeBlock(bitmap,Super_Block.cantofblock);
-                    ID[(int)IS_to_write] = addIS_toDouble; //lo agrega
+                    double addIS_toDoble = getNextFreeBlock(bitmap,Super_Block.cantofblock);
+                    ID[(int)IS_to_write] = addIS_toDoble; //lo agrega
                     for (int i = 0; i < x; ++i) { //lo inicializa con -1
                         ID_IS[i] = -1;
                     }
@@ -654,7 +654,60 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                 write(disk,(char*)ID_IS,ID[(int)IS_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock);
             }else if(inode->blockuse < (10 + x + pow(x,2) + pow(x,3))) //CASE 3: si bloques de data usados es menor I_TRIPLES mas los anteriores
             {
+                double IT_ptr = inode->indirectostriples;
+                double *IT = new double[x];
+                double *IT_ID = new double[x];
+                double *IT_ID_IS = new double[x];
+                if(IT_ptr == -1) //si no hemos usado IT antes
+                {
+                    IT_ptr = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pedimos bloque para IT
+                    inode->indirectostriples = IT_ptr; //actualizamos el inodo
+                    for (int i = 0; i < x; ++i) { //lo inicializamos
+                        IT[i] = -1;
+                    }
+                }else{ //si ya lo habiamos usado solo lo leemos
+                    read(disk,(char*)IT,IT_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                }
+                double b_data_IT = inode->blockuse++ - 10 - x - pow(x,2); //cuantos bloques de DATA tiene el IT?
+                double ID_to_write = b_data_IT/pow(x,2);                  //cuantos ID esta usando el IT?
+                if((ID_to_write - floor(ID_to_write))==0)                 //los ID que esta usando ya estan llenos?
+                {
+                    //pide un bloque para añadirlo a los ID que usa el IT
+                    double addID_toTriple = getNextFreeBlock(bitmap,Super_Block.cantofblock);
+                    IT[(int)ID_to_write] = addID_toTriple; //lo agrega
+                    for (int i = 0; i < x; ++i) { //lo inicializa
+                        IT_ID[i] = -1;
+                    }
+                    write(disk,(char*)IT,IT_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                }else{ //sino, entonces hay espacio aun en el ultimo ID que esta usando el IT
+                    ID_to_write = floor(ID_to_write); //lo redondeamos hacia abajo para obtener el index en el IT
+                    read(disk,(char*)IT_ID,IT[(int)ID_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock); //lo leemos
+                }
 
+                double IS_to_write = b_data_IT/x;                         //cuantos IS esta usando el IT?
+                double indexIS_inID = IS_to_write - x*ID_to_write;        //cual es el index del IS en el ID correspondiente?
+                if((IS_to_write - floor(IS_to_write))==0)                 //los IS que esta usando ya estan llenos?
+                {
+                    //pide un bloque para añadirlo a los IS que usa el ID correspondiente
+                    double addIS_toIDoble = getNextFreeBlock(bitmap,Super_Block.cantofblock);
+                    IT_ID[(int)indexIS_inID] = addIS_toIDoble; //lo agrega
+                    for (int i = 0; i < x; ++i) { //lo inicializa
+                        IT_ID_IS[i] = -1;
+                    }
+                    write(disk,(char*)IT_ID,IT[(int)ID_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                }else{ //sino, entonces hay espacio aun en el ultimo IS del ID correspondiente que esta usando el IT
+                    IS_to_write = floor(IS_to_write); //redondeamos hacia abajo para luego sacar el index donde va ir la data en ese IS
+                    indexIS_inID = floor(indexIS_inID); //redondeamos hacia abajo para sacar el index del IS en el ID
+                    read(disk,(char*)IT_ID_IS,IT_ID[(int)indexIS_inID]*Super_Block.sizeofblock,Super_Block.sizeofblock); //lo leemos
+                }
+                int indexInIS = b_data_IT - x*IS_to_write; //calculamos el index de la DATA dentro del IS
+
+                double block = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pide bloque para la DATA
+                IT_ID_IS[indexInIS] = block; //lo agrega al IS
+
+                //escribimos en el disco el bloque de DATA y el IS correcpondiente
+                write(disk,buffer,block*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                write(disk,(char*)IT_ID_IS,IT_ID[(int)indexIS_inID]*Super_Block.sizeofblock,Super_Block.sizeofblock);
             }
         }else{ //si al ultimo bloque le falta por llenarse
 
