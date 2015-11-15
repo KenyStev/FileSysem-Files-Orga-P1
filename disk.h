@@ -35,6 +35,7 @@ struct Inode{
     double indirectossimples;
     double indirectosdobles;
     double indirectostriples;
+    double lastDataBlock;
     char permisos[10];
 };
 

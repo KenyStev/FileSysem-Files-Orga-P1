@@ -42,7 +42,10 @@ int main(int argc, char *argv[])
     output_file.close();
     cout<<"document closed"<<endl;
 */
-    vector<double> blo = getTotalBlocksToUse(368,16);//pow(1024,2) = 1048576 //68176384 byte maximo para bloques de 256 bytes
-    cout<<"Total blocks for file_size=1MB, block_size=256bytes: "<<blo[1]<<endl;
+//    vector<double> blo = getTotalBlocksToUse(368,16);//pow(1024,2) = 1048576 //68176384 byte maximo para bloques de 256 bytes
+//    cout<<"Total blocks for file_size=1MB, block_size=256bytes: "<<blo[1]<<endl;
+
+
+
     return a.exec();
 }

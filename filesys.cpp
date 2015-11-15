@@ -330,7 +330,7 @@ void FileSys::mkfile(string name, int size)
     string T_name = (disks_path + mounted_disk + format).toStdString();
     int index = searchInFileTable(name);
 
-    if(index == -1 && Total_blocks[0] >= 0 && Super_Block.freeinode > 0)
+    if(index == -1 && Super_Block.freeinode > 0)
     {
         //creando filetable e inodo
         index = get_NextFree_FileTable();
@@ -446,8 +446,35 @@ void FileSys::mkfile(string name, int size)
             }
         }
     }else{
+        cout<<"Ya existe el nombre"<<endl;
+        double inode = file_data_array[index]->index_file;
+        char *buffer = new char[sizeof(Inode)];
+        Inode new_inode;
+        read(T_name, buffer,start_inodes + inode*sizeof(Inode),sizeof(Inode));
+        memcpy(&new_inode,buffer,sizeof(Inode));
+        cout<<"lastDataBlock: "<<new_inode.lastDataBlock<<endl;
 
+        double size_bytes_temp = size_bytes;
+        double size_to_write = Super_Block.sizeofblock;
+        for (int i = 0; i < bloques_data; ++i) {
+            char *buffer = new char[Super_Block.sizeofblock];
+            for (int i = 0; i < Super_Block.sizeofblock; ++i) {
+                buffer[i] = rand()%25 + 65;
+            }
+            if(size_bytes_temp<size_to_write)
+                size_to_write = size_bytes_temp;
+            size_bytes_temp-=size_to_write;
+            writeInode(&new_inode,T_name,buffer,size_to_write);
+        }
+        //escribiendo inodo en el disco
+        write(T_name,(char*)&new_inode,start_inodes + inode*sizeof(Inode),sizeof(Inode));
+        cout<<"termino de escribir!"<<endl;
     }
+}
+
+void FileSys::mkDir(string name)
+{
+
 }
 
 void FileSys::mkfile2(string name, int size)
@@ -570,6 +597,12 @@ void FileSys::mkfile2(string name, int size)
 
 }
 
+void FileSys::updateFileTableFromDir(Inode *inode, FileData *data)
+{
+    string T_name = (disks_path + mounted_disk + format).toStdString();
+    writeInode(inode,T_name,(char*)data,sizeof(FileData));
+}
+
 void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 {
     //los permisos deben darsele afuera de esta funcion
@@ -580,19 +613,55 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
         inode->blockuse = 1;
         double block = getNextFreeBlock(bitmap,Super_Block.cantofblock);
         inode->directos[0] = block;
-        write(disk,buffer,block*Super_Block.sizeofblock,Super_Block.sizeofblock);
+        inode->lastDataBlock = block;
+        write(disk,buffer,block*Super_Block.sizeofblock,size);
     }else{ //no virgen
         double used_blocks = inode->filesize/Super_Block.sizeofblock;
         int x = Super_Block.sizeofblock/8;
-        if((used_blocks - floor(used_blocks))==0) // si los bloques usados estan todos llenos
+        double block_used_percent = used_blocks - floor(used_blocks);
+        double free_of_block = Super_Block.sizeofblock - block_used_percent*Super_Block.sizeofblock;
+
+
+        if(block_used_percent>0)
         {
+            if(size <= free_of_block)
+            {
+                write(disk,buffer,inode->lastDataBlock*Super_Block.sizeofblock + block_used_percent*Super_Block.sizeofblock,size);
+                inode->filesize += size;
+                return;
+            }else{
+                write(disk,buffer,inode->lastDataBlock*Super_Block.sizeofblock + block_used_percent*Super_Block.sizeofblock,free_of_block);
+                inode->filesize += free_of_block;
+
+//                char *buf_temp = new char[Super_Block.sizeofblock];
+//                strcpy(buf_temp,buffer);
+////                buffer = new char[Super_Block.sizeofblock];
+//                memset(buffer,0,Super_Block.sizeofblock);
+                cout<<"buffer antes: "<<buffer<<endl;
+                cout<<"free of blocks: "<<free_of_block<<endl;
+                cout<<"size: "<<size<<endl;
+//                for (int i = (block_used_percent*Super_Block.sizeofblock),j=0; i < size; ++i, j++) {
+//                    buffer[j] = buf_temp[i];
+//                }
+                size -= free_of_block;
+                string buf_temp(buffer);
+                string buf = buf_temp.substr(free_of_block,size);
+                buffer = const_cast<char *>(buf.c_str());
+                buffer[0] = 'Y';
+                cout<<"bytes copiados: "<<buffer<<endl;
+            }
+        }
+
+//        if(block_used_percent==0) // si los bloques usados estan todos llenos
+//        {
             if(inode->blockuse < 10) //CASE 0:si los bloques de data usados son menorea a los DIRECTOS
             {
                 double block = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pide bloque libre al bitmap
                 int save_to = inode->blockuse++;    //guardamos el index de la siguente posicion libre de los DIRECTOS
                 inode->directos[save_to] = block;   //guardamos la direccion del bloque en los directos
                 inode->filesize += size;            //aumentamos el filesize del archivo
-                write(disk,buffer,block*Super_Block.sizeofblock,Super_Block.sizeofblock);   //escribimos el bloque de data
+                inode->lastDataBlock = block;
+                write(disk,buffer,block*Super_Block.sizeofblock,size);   //escribimos el bloque de data
             }else if(inode->blockuse < (10 + x)){   //CASE 1: si bloques de data usados es menor I_SIMPLES mas los anteriores
                 double IS_ptr = inode->indirectossimples;
                 double *IS = new double[x];         //bloque de IS con las direcciones a los bloques de data
@@ -611,9 +680,11 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                 double block = getNextFreeBlock(bitmap,Super_Block.cantofblock); //bloque para la data
                 int save_to = inode->blockuse++ - 10; //sacamos el index en los IS donde guardaremos la direccion del bloque de data
                 IS[save_to] = block;
+                inode->filesize += size;
+                inode->lastDataBlock = block;
 
                 //escribimos el bloque de data y el bloque de IS como corresponda
-                write(disk,buffer,block*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                write(disk,buffer,block*Super_Block.sizeofblock,size);
                 write(disk,(char*)IS,IS_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
             }else if(inode->blockuse < (10 + x + pow(x,2))){ //CASE 2: si bloques de data usados es menor I_DOBLES mas los anteriores
                 double ID_ptr = inode->indirectosdobles;
@@ -648,9 +719,11 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 
                 double block = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pedimos bloque para la data
                 ID_IS[indexInIS] = block; //lo guardamos el los IS que tiene el ID
+                inode->filesize += size;
+                inode->lastDataBlock = block;
 
                 //escribimos el bloque de data y el bloque del IS que pertenece al ID en el disco como corresponde
-                write(disk,buffer,block*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                write(disk,buffer,block*Super_Block.sizeofblock,size);
                 write(disk,(char*)ID_IS,ID[(int)IS_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock);
             }else if(inode->blockuse < (10 + x + pow(x,2) + pow(x,3))) //CASE 3: si bloques de data usados es menor I_TRIPLES mas los anteriores
             {
@@ -704,14 +777,16 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 
                 double block = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pide bloque para la DATA
                 IT_ID_IS[indexInIS] = block; //lo agrega al IS
+                inode->filesize += size;
+                inode->lastDataBlock = block;
 
                 //escribimos en el disco el bloque de DATA y el IS correcpondiente
-                write(disk,buffer,block*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                write(disk,buffer,block*Super_Block.sizeofblock,size);
                 write(disk,(char*)IT_ID_IS,IT_ID[(int)indexIS_inID]*Super_Block.sizeofblock,Super_Block.sizeofblock);
             }
-        }else{ //si al ultimo bloque le falta por llenarse
+//        }else{ //si al ultimo bloque le falta por llenarse
 
-        }
+//        }
 
     }
 }
@@ -719,7 +794,7 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 int FileSys::searchInFileTable(string name)
 {
     for (int i = 0; i < file_data_array.size(); ++i) {
-        if(strcpy(file_data_array[i]->name,name.c_str())==0)
+        if(strcmp(file_data_array[i]->name,name.c_str())==0)
         {
             return i;
         }
@@ -730,7 +805,7 @@ int FileSys::searchInFileTable(string name)
 int FileSys::searchInodeInFileTable(string name)
 {
     for (int i = 0; i < file_data_array.size(); ++i) {
-        if(strcpy(file_data_array[i]->name,name.c_str())==0)
+        if(strcmp(file_data_array[i]->name,name.c_str())==0)
         {
             return file_data_array[i]->index_file;
         }

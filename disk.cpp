@@ -102,6 +102,7 @@ SuperBlock createDisk(char name[],double size_disk, int size_block){
     root_inodo.indirectossimples = -1;
     root_inodo.indirectosdobles = -1;
     root_inodo.indirectostriples = -1;
+    root_inodo.lastDataBlock = -1;
     strcpy(root_inodo.permisos,"drwxrwxrwx");
     output_file.write(((char*)&root_inodo),inodes_size);
 
@@ -112,6 +113,7 @@ SuperBlock createDisk(char name[],double size_disk, int size_block){
     inodes.indirectossimples = -1;
     inodes.indirectosdobles = -1;
     inodes.indirectostriples = -1;
+    inodes.lastDataBlock = -1;
     strcpy(inodes.permisos,"----------");
     cout<<"writing Inodes of size: "<<inodes_size*SP.cantofinode<<endl;
     for(int d =1;d<SP.cantofinode;d++){
