@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <cstdio>
 #include <string.h>
+#include <string>
 #include <QDir>
 #include <vector>
 #include <QStringList>
@@ -53,6 +54,12 @@ struct FileData{
  */
 SuperBlock createDisk(char name[],double size_disk, int size_block);
 
+/**
+ * @brief getNextFreeBlock busca un bloque libre, lo marca como ocupado y lo devuelve.
+ * @param bitmap en donde hara la busqueda
+ * @param size_bitmap cantidad de bloques dentro del bitmap
+ * @return el primer bloque libre que encuentra en el bitmap recibido de parametro
+ */
 double getNextFreeBlock(char *bitmap, double size_bitmap);
 
 /**
@@ -105,10 +112,17 @@ void write(string disk_name,char *buffer, double start, double bytes_to_write);
  */
 void read(string disk_name, char *buffer, double start, double bytes_to_write);
 
-//pendiente
+/**
+ * @brief writeInodesBlocks
+ * @param disk_name
+ * @param data_index
+ * @param inodes_index
+ * @param how_many
+ * @param size_block
+ * @param inode
+ * @param start
+ */
 void writeInodesBlocks(string disk_name, vector<double> data_index, vector<double> inodes_index, vector<double> how_many,int size_block,Inode *inode, double start);
-
-//void writeInode(Inode inode, char *buffer, double size);
 
 /**
  * @brief getFreeBlocks
@@ -140,7 +154,42 @@ void set_blocks_in_use(char *bitmap, vector<int> blocks);
  */
 void set_blocks_in_unuse(char *bitmap, vector<int> blocks);
 
-void writeFileTable(char *buffer,int index);
+/**
+ * @brief readDataBlocksFrom lee todos los bloques de data que tiene un inodo y los carga a la RAM.
+ * @param disk disco montado
+ * @param buffer donde guardara toda la DATA, el buffer se inicializa dentro de la funcion como tamanio el filesize del inodo
+ * @param inode de quien extraera la DATA
+ * @param sizeblock tamanio del bloque en el disco
+ */
+void readDataBlocksFrom(string disk,char*&buffer,Inode *inode, double sizeblock);
+
+/**
+ * @brief memcpybuffer
+ * @param dest
+ * @param src
+ * @param sizeblock
+ * @param init
+ * @param size_src
+ */
 void memcpybuffer(char *&dest, char *src, int sizeblock, double init , double size_src);
+
+/**
+ * @brief memtransbuffer va agregando DATA al dest recibido de parametro en cada llamada de diferentes origenes
+ * -> usado para ir extraendo los bloques de data de un inodo e irlos agregando a un solo bloque del tamanio del archivo,
+ * -> se usara solo para los directorios
+ * @param dest es el buffer donde se ira guardando la DATA
+ * @param src sera diferente en cada llamada, es cada bloque de data leido del archivo
+ * @param init es de donde comenzara a escribir el nuevo bloque de DATA en el buffer 'dest'
+ * @param size_src el tamanio en bytes que se va a transferir, o lo que pesa el bloque 'src'
+ */
+void memtransbuffer(char *&dest, char *src, double init , double size_src);
+
+/**
+ * @brief getFileTableFrom lee un buffer y va agregando cada uno de los registros al vector
+ * @param dir inodo del directorio del cual se pasara el buffer a vector
+ * @param buffer es el buffer generado por: @readDataBlocksFrom();
+ * @return un vector con el FileTable de ese directorio
+ */
+vector<FileData*> getFileTableFrom(Inode dir, char* buffer);
 
 #endif // DISK_H

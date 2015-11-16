@@ -33,7 +33,7 @@ FileSys::~FileSys()
 
 void FileSys::exCommand(QString command_line)
 {
-    ui->listTerm->appendPlainText(mounted_disk + "@root~" + root_path + current_path.join("/") + "$ " + command_line);
+    ui->listTerm->appendPlainText(mounted_disk + "@root~" + current_path.join("/") + "$ " + command_line);
     QStringList commands = command_line.split(" ");
 
     if(!command_line.isEmpty())
@@ -108,13 +108,16 @@ void FileSys::exCommand(QString command_line)
         }else if(is_mounted_disk){ // comandos si hay un disco esta montado
             if(main_command == "ls") // comand ls -l
             {
-
+                ls();
             }else if(main_command == "cd") // change directory form: cd [path]
             {
 
             }else if(main_command == "mkdir") // crear directory form: mkdir [name_dir]
             {
-
+                if(commands.size() == 1 )
+                {
+                    mkDir(commands.at(0).toStdString());
+                }
             }else if(main_command == "mkfile") // crear file form: mkfile [name_file] [tamanio mb]
             {
                 if(commands.size() == 2 )
@@ -216,6 +219,8 @@ void FileSys::mountDisk(QString disk_name)
             char *root_buffer = new char[sizeof(Inode)];
             in.read(root_buffer,sizeof(Inode));
             memcpy(&current_inode,root_buffer,sizeof(Inode));
+
+            current_path.push_back(root_path);
 
             cout<<"FD_root_name: "<<file_data_array[0]->name<<endl;
             cout<<"FD_root_index_inode: "<<file_data_array[0]->index_file<<endl;
@@ -347,12 +352,19 @@ void FileSys::mkfile(string name, int size)
         //escribiendo filedata en el disco
         write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
 
+        //actualizamos el FileTable del directorio actual
+        FileData fd;
+        strcpy(fd.name,name.c_str());
+        fd.index_file = inode;
+        updateFileTableFromDir(&current_inode,&fd);
+        write(T_name,(char*)&current_inode,start_inodes + current_inode_ptr*sizeof(Inode),sizeof(Inode));
+
         double size_bytes_temp = size_bytes;
         double size_to_write = Super_Block.sizeofblock;
         for (int i = 0; i < bloques_data; ++i) {
             char *buffer = new char[Super_Block.sizeofblock];
             for (int i = 0; i < Super_Block.sizeofblock; ++i) {
-                buffer[i] = rand()%25 + 65;
+                buffer[i] = 'K';//rand()%25 + 65;
             }
             if(size_bytes_temp<size_to_write)
                 size_to_write = size_bytes_temp;
@@ -459,7 +471,7 @@ void FileSys::mkfile(string name, int size)
         for (int i = 0; i < bloques_data; ++i) {
             char *buffer = new char[Super_Block.sizeofblock];
             for (int i = 0; i < Super_Block.sizeofblock; ++i) {
-                buffer[i] = rand()%25 + 65;
+                buffer[i] = 'K';//rand()%25 + 65;
             }
             if(size_bytes_temp<size_to_write)
                 size_to_write = size_bytes_temp;
@@ -474,7 +486,41 @@ void FileSys::mkfile(string name, int size)
 
 void FileSys::mkDir(string name)
 {
+    //falta validar que quepa otro archivo en el 'dir' actual
+    string T_name = (disks_path + mounted_disk + format).toStdString();
 
+    //creando filetable e inodo
+    int index = get_NextFree_FileTable();
+    double inode = getNextFreeBlock(bitmap_inodes,Super_Block.cantofinode);
+    strcpy(file_data_array[index]->name,name.c_str());
+    file_data_array[index]->index_file = inode;
+
+    //escribiendo filedata en el disco
+    write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
+
+    //nuevo inodo para el nuevo 'dir'
+    Inode new_dir;
+    strcpy(new_dir.permisos,"drwxrwxrwx");
+
+    FileData refer_to_father;
+    strcpy(refer_to_father.name,"..");
+    refer_to_father.index_file = current_inode_ptr;
+
+    updateFileTableFromDir(&new_dir,&refer_to_father);
+
+    //escribiendo inodo en el disco
+    write(T_name,(char*)&new_dir,start_inodes + inode*sizeof(Inode),sizeof(Inode));
+
+    //referencia para el 'dir' actual
+    FileData refer;
+    strcpy(refer.name,name.c_str());
+    refer.index_file = inode;
+
+    //agregamos la referencia al FileTable del 'dir' actual
+    updateFileTableFromDir(&current_inode,&refer);
+
+    //actualizando inodo actual en el disco
+    write(T_name,(char*)&current_inode,start_inodes + current_inode_ptr*sizeof(Inode),sizeof(Inode));
 }
 
 void FileSys::mkfile2(string name, int size)
@@ -600,7 +646,42 @@ void FileSys::mkfile2(string name, int size)
 void FileSys::updateFileTableFromDir(Inode *inode, FileData *data)
 {
     string T_name = (disks_path + mounted_disk + format).toStdString();
-    writeInode(inode,T_name,(char*)data,sizeof(FileData));
+    double size = sizeof(FileData);
+    double size_temp = size;
+    double size_to_write = Super_Block.sizeofblock;
+    double dataBlocks = ceil(size/size_to_write);
+    char *src_buffer = (char*)data;
+    char *buffer = new char[(int)size_to_write];
+    double iterate=0;
+
+    for (int i = 0; i < dataBlocks; ++i) {
+        if(size_temp<size_to_write)
+            size_to_write = size_temp;
+        size_temp-=size_to_write;
+        memcpybuffer(buffer,src_buffer,size_to_write,iterate,size);
+        iterate+=size_to_write;
+        writeInode(inode,T_name,buffer,size_to_write);
+    }
+}
+
+void FileSys::ls()
+{
+    string T_name = (disks_path + mounted_disk + format).toStdString();
+    char *all_datablocks;
+    readDataBlocksFrom(T_name,all_datablocks,&current_inode,Super_Block.sizeofblock);
+
+    vector<FileData*> filetable = getFileTableFrom(current_inode,all_datablocks);
+    cout<<"current path: "<<current_path.join("/").toStdString().c_str()<<endl;
+    for (int i = 0; i < filetable.size(); ++i) {
+        cout<<"Nombre: "<<filetable[i]->name<<" index: "<<filetable[i]->index_file<<endl;
+        char *buffer = new char[sizeof(Inode)];
+        Inode *inode = new Inode();
+        read(T_name,buffer,start_inodes + (filetable[i]->index_file)*sizeof(Inode),sizeof(Inode));
+        memcpy(inode,buffer,sizeof(Inode));
+        string file = string(inode->permisos) + "\troot  root\t" + QString::number(inode->filesize).toStdString() + "    " + string(filetable[i]->name);
+        cout<<file.c_str()<<endl;
+        ui->listTerm->appendPlainText(QString(file.c_str()));
+    }
 }
 
 void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)

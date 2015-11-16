@@ -26,6 +26,7 @@ private:
     QString mounted_disk = "";
     bool is_mounted_disk=false;
     Inode current_inode;
+    double current_inode_ptr=0;
     SuperBlock Super_Block;
     vector<FileData*> file_data_array;
     char *bitmap;
@@ -91,10 +92,43 @@ private:
      * @param size tamanio en MB
      */
 
+    /**
+     * @brief writeInode escribe un bloque de DATA del inodo recibido
+     * @param inode a quien pertenece el bloque de DATA
+     * @param disk el disco montado actualente
+     * @param buffer el bloque que va a escribir
+     * @param size el tamanio del bloque que va a escribir ya que puede que el buffer no se escribi todo,
+     * osea lo que pesa el 'blocksize' sino menos, pero nunca mas de eso.
+     */
     void writeInode(Inode *inode, string disk, char *buffer, double size);
+
+    /**
+     * @brief mkfile crea un archivo en el directorio situado actualmente con letras random
+     * @param name del nombre recibido
+     * @param size y tamanio especificado
+     */
     void mkfile(string name,int size);
+
+    /**
+     * @brief mkDir crea un directorio dentro del directorio actual
+     * @param name con el nombre recibido
+     */
+    void mkDir(string name);
     void mkfile2(string name,int size);
 
+    /**
+     * @brief updateFileTableFromDir actualiza los bloques de DATA de un directorio
+     * usado a la hora de crear un nuevo 'dir' o 'file' dentro de el.
+     * @param inode en el cual se hara el cambio
+     * @param data es el nuevo registro para la DATA del 'dir'
+     */
+    void updateFileTableFromDir(Inode *inode,FileData *data);
+
+    /**
+     * @brief ls lista los directorios y achivos que estan dentro del 'dir' actual
+     * para ello usa las funciones auxiliares @readDataBlocksFrom(); @getFileTableFrom();
+     */
+    void ls();
     void cd(string dir_to_move);
 };
 
