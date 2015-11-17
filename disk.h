@@ -163,6 +163,8 @@ void set_blocks_in_unuse(char *bitmap, vector<int> blocks);
  */
 void readDataBlocksFrom(string disk,char*&buffer,Inode *inode, double sizeblock);
 
+void ExportFile(string disk,string file_to_export,Inode *inode, double sizeblock);
+
 /**
  * @brief memcpybuffer
  * @param dest

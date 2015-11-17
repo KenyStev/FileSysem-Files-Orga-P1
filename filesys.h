@@ -36,6 +36,7 @@ private:
 
     QString root_path = "/";
     QString disks_path = "VirtualDisks/";
+    QString dirToExport = "Exported_Files/";
     QStringList current_path;
     QString format = ".data";
     QString fdisk_commands = "command' list for fdisk:"
@@ -124,12 +125,15 @@ private:
      */
     void updateFileTableFromDir(Inode *inode,FileData *data);
 
+    void updateSuperBlock();
+
     /**
      * @brief ls lista los directorios y achivos que estan dentro del 'dir' actual
      * para ello usa las funciones auxiliares @readDataBlocksFrom(); @getFileTableFrom();
      */
     void ls();
     void cd(string dir_to_move);
+    void Export(string file_name);
 };
 
 #endif // FILESYS_H

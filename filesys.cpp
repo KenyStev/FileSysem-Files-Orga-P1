@@ -24,6 +24,8 @@ FileSys::FileSys(QWidget *parent) :
     for (int i = 0; i < disks.size(); ++i) {
         cout<<disks[i].toStdString()<<endl;
     }
+
+    ui->listTerm->installEventFilter(this);
 }
 
 FileSys::~FileSys()
@@ -33,7 +35,7 @@ FileSys::~FileSys()
 
 void FileSys::exCommand(QString command_line)
 {
-    ui->listTerm->appendPlainText(mounted_disk + "@root~" + current_path.join("/") + "$ " + command_line);
+    ui->listTerm->appendPlainText(mounted_disk + "@root:~" + current_path.join("/") + "$ " + command_line);
     QStringList commands = command_line.split(" ");
 
     if(!command_line.isEmpty())
@@ -111,7 +113,10 @@ void FileSys::exCommand(QString command_line)
                 ls();
             }else if(main_command == "cd") // change directory form: cd [path]
             {
-
+                if(commands.size() == 1 )
+                {
+                    cd(commands.at(0).toStdString());
+                }
             }else if(main_command == "mkdir") // crear directory form: mkdir [name_dir]
             {
                 if(commands.size() == 1 )
@@ -135,7 +140,8 @@ void FileSys::exCommand(QString command_line)
 
             }else if(main_command == "export") // exportar fuera del disco form: export [file_name]
             {
-
+                if(commands.size()==1)
+                    Export(commands.at(0).toStdString());
             }else if(main_command == "cp") // copiar un archivo de un lugar a otro form: cp [name] [path]
             {
 
@@ -220,7 +226,7 @@ void FileSys::mountDisk(QString disk_name)
             in.read(root_buffer,sizeof(Inode));
             memcpy(&current_inode,root_buffer,sizeof(Inode));
 
-            current_path.push_back(root_path);
+//            current_path.push_back(root_path);
 
             cout<<"FD_root_name: "<<file_data_array[0]->name<<endl;
             cout<<"FD_root_index_inode: "<<file_data_array[0]->index_file<<endl;
@@ -334,12 +340,16 @@ void FileSys::mkfile(string name, int size)
     vector<double> Total_blocks = getTotalBlocksToUse(size_bytes,Super_Block.sizeofblock);
     string T_name = (disks_path + mounted_disk + format).toStdString();
     int index = searchInFileTable(name);
+    cout<<"Free size disk antes: "<<Super_Block.freespace<<endl;
 
-    if(index == -1 && Super_Block.freeinode > 0)
+    if(index == -1 && Super_Block.freeinode > 0 && Total_blocks[Total_blocks.size()-1] <= Super_Block.freeblock)
     {
+//        Super_Block.freespace -= size_bytes;
+
         //creando filetable e inodo
         index = get_NextFree_FileTable();
         double inode = getNextFreeBlock(bitmap_inodes,Super_Block.cantofinode);
+        Super_Block.freeinode--;
         strcpy(file_data_array[index]->name,name.c_str());
         file_data_array[index]->index_file = inode;
 
@@ -378,11 +388,12 @@ void FileSys::mkfile(string name, int size)
         write(T_name,bitmap,start_bitmap,Super_Block.cantofblock/8);
         write(T_name,bitmap_inodes,start_bitmap_inodes,Super_Block.cantofinode/8);
 
-        //guardar Super Block
-        Super_Block.freeblock -= Total_blocks[Total_blocks.size()-1];
-        (Super_Block.freeinode)--;
-        Super_Block.freespace -= (size_bytes + (Total_blocks[Total_blocks.size()-1] - bloques_data)*Super_Block.sizeofblock);
-        write(T_name,(char*)&Super_Block,0,sizeof(SuperBlock));
+        //guardar Super Block 'en duda aun'
+//        Super_Block.freeblock -= Total_blocks[Total_blocks.size()-1];
+//        (Super_Block.freeinode)--;
+//        Super_Block.freespace -= (size_bytes + (Total_blocks[Total_blocks.size()-1] - bloques_data)*Super_Block.sizeofblock);
+//        write(T_name,(char*)&Super_Block,0,sizeof(SuperBlock));
+        updateSuperBlock();
 
         ui->listTerm->appendPlainText("Archivo creado!");
         cout<<"Archivo creado!"<<endl;
@@ -481,46 +492,76 @@ void FileSys::mkfile(string name, int size)
         //escribiendo inodo en el disco
         write(T_name,(char*)&new_inode,start_inodes + inode*sizeof(Inode),sizeof(Inode));
         cout<<"termino de escribir!"<<endl;
+
+        //escribimos el superblock
+        updateSuperBlock();
     }
+    cout<<"Free size disk: "<<Super_Block.freespace<<endl;
 }
 
 void FileSys::mkDir(string name)
 {
     //falta validar que quepa otro archivo en el 'dir' actual
-    string T_name = (disks_path + mounted_disk + format).toStdString();
+    cout<<"Free size disk antes: "<<Super_Block.freespace<<endl;
 
-    //creando filetable e inodo
-    int index = get_NextFree_FileTable();
-    double inode = getNextFreeBlock(bitmap_inodes,Super_Block.cantofinode);
-    strcpy(file_data_array[index]->name,name.c_str());
-    file_data_array[index]->index_file = inode;
+    int x = Super_Block.sizeofblock/8;
+    double totalSizeInode = (10 + x + pow(x,2) + pow(x,3))*Super_Block.sizeofblock;
+    int index = searchInFileTable(name);
 
-    //escribiendo filedata en el disco
-    write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
+    if(index==-1 && current_inode.filesize < totalSizeInode )
+    {
+        string T_name = (disks_path + mounted_disk + format).toStdString();
 
-    //nuevo inodo para el nuevo 'dir'
-    Inode new_dir;
-    strcpy(new_dir.permisos,"drwxrwxrwx");
+        //creando filetable e inodo
+        int index = get_NextFree_FileTable();
+        double inode = getNextFreeBlock(bitmap_inodes,Super_Block.cantofinode);
+        Super_Block.freeinode--;
+        strcpy(file_data_array[index]->name,name.c_str());
+        file_data_array[index]->index_file = inode;
 
-    FileData refer_to_father;
-    strcpy(refer_to_father.name,"..");
-    refer_to_father.index_file = current_inode_ptr;
+        //escribiendo filedata en el disco
+        write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
 
-    updateFileTableFromDir(&new_dir,&refer_to_father);
+        //nuevo inodo para el nuevo 'dir'
+        Inode new_dir;
+        strcpy(new_dir.permisos,"drwxrwxrwx");
+        for (int i = 0; i < 10; ++i) {
+            (new_dir.directos)[i] = -1;
+        }
+        new_dir.filesize = -1;
+        new_dir.blockuse = -1;
+        new_dir.indirectossimples = -1;
+        new_dir.indirectosdobles = -1;
+        new_dir.indirectostriples = -1;
+        new_dir.lastDataBlock = -1;
 
-    //escribiendo inodo en el disco
-    write(T_name,(char*)&new_dir,start_inodes + inode*sizeof(Inode),sizeof(Inode));
+        FileData refer_to_father;
+        strcpy(refer_to_father.name,"..");
+        refer_to_father.index_file = current_inode_ptr;
 
-    //referencia para el 'dir' actual
-    FileData refer;
-    strcpy(refer.name,name.c_str());
-    refer.index_file = inode;
+        updateFileTableFromDir(&new_dir,&refer_to_father);
 
-    //agregamos la referencia al FileTable del 'dir' actual
-    updateFileTableFromDir(&current_inode,&refer);
+        //escribiendo inodo en el disco
+        write(T_name,(char*)&new_dir,start_inodes + inode*sizeof(Inode),sizeof(Inode));
 
-    //actualizando inodo actual en el disco
-    write(T_name,(char*)&current_inode,start_inodes + current_inode_ptr*sizeof(Inode),sizeof(Inode));
+        //referencia para el 'dir' actual
+        FileData refer;
+        strcpy(refer.name,name.c_str());
+        refer.index_file = inode;
+
+        //agregamos la referencia al FileTable del 'dir' actual
+        updateFileTableFromDir(&current_inode,&refer);
+
+        //actualizando inodo actual en el disco
+        write(T_name,(char*)&current_inode,start_inodes + current_inode_ptr*sizeof(Inode),sizeof(Inode));
+
+        //actualizando SuperBlock
+        updateSuperBlock();
+    }else{
+        ui->listTerm->appendPlainText(QString(("El dir: " + name + " ya existe!").c_str()));
+    }
+
+    cout<<"Free size disk: "<<Super_Block.freespace<<endl;
 }
 
 void FileSys::mkfile2(string name, int size)
@@ -647,6 +688,7 @@ void FileSys::updateFileTableFromDir(Inode *inode, FileData *data)
 {
     string T_name = (disks_path + mounted_disk + format).toStdString();
     double size = sizeof(FileData);
+//    Super_Block.freespace-=size;
     double size_temp = size;
     double size_to_write = Super_Block.sizeofblock;
     double dataBlocks = ceil(size/size_to_write);
@@ -662,6 +704,13 @@ void FileSys::updateFileTableFromDir(Inode *inode, FileData *data)
         iterate+=size_to_write;
         writeInode(inode,T_name,buffer,size_to_write);
     }
+
+}
+
+void FileSys::updateSuperBlock()
+{
+    string T_name = (disks_path + mounted_disk + format).toStdString();
+    write(T_name,(char*)&Super_Block,0,sizeof(SuperBlock));
 }
 
 void FileSys::ls()
@@ -672,15 +721,72 @@ void FileSys::ls()
 
     vector<FileData*> filetable = getFileTableFrom(current_inode,all_datablocks);
     cout<<"current path: "<<current_path.join("/").toStdString().c_str()<<endl;
+    string titles = "permisios\towner\tgroup\tsize\tname";
+    ui->listTerm->appendPlainText(QString(titles.c_str()));
     for (int i = 0; i < filetable.size(); ++i) {
         cout<<"Nombre: "<<filetable[i]->name<<" index: "<<filetable[i]->index_file<<endl;
-        char *buffer = new char[sizeof(Inode)];
-        Inode *inode = new Inode();
-        read(T_name,buffer,start_inodes + (filetable[i]->index_file)*sizeof(Inode),sizeof(Inode));
-        memcpy(inode,buffer,sizeof(Inode));
-        string file = string(inode->permisos) + "\troot  root\t" + QString::number(inode->filesize).toStdString() + "    " + string(filetable[i]->name);
-        cout<<file.c_str()<<endl;
-        ui->listTerm->appendPlainText(QString(file.c_str()));
+        if(strcmp(filetable[i]->name,"..")!=0)
+        {
+            char *buffer = new char[sizeof(Inode)];
+            Inode *inode = new Inode();
+            read(T_name,buffer,start_inodes + (filetable[i]->index_file)*sizeof(Inode),sizeof(Inode));
+            memcpy(inode,buffer,sizeof(Inode));
+            string file = string(inode->permisos) + "\troot\troot\t" + QString::number(inode->filesize).toStdString() + "\t" + string(filetable[i]->name);
+            cout<<file.c_str()<<endl;
+            ui->listTerm->appendPlainText(QString(file.c_str()));
+        }
+    }
+}
+
+void FileSys::cd(string dir_to_move)
+{
+    string T_name = (disks_path + mounted_disk + format).toStdString();
+    if(dir_to_move==".." && current_path.size()==0)
+    {
+        return;
+    }else{
+        char *all_datablocks;
+        readDataBlocksFrom(T_name,all_datablocks,&current_inode,Super_Block.sizeofblock);
+
+        vector<FileData*> filetable = getFileTableFrom(current_inode,all_datablocks);
+        for (int i = 0; i < filetable.size(); ++i) {
+            if(strcmp(filetable[i]->name,dir_to_move.c_str())==0)
+            {
+                char *buffer = new char[sizeof(Inode)];
+                Inode inode;// = new Inode();
+                read(T_name,buffer,start_inodes + (filetable[i]->index_file)*sizeof(Inode),sizeof(Inode));
+                memcpy(&inode,buffer,sizeof(Inode));
+                if((inode.permisos)[0]=='d'){
+                    memcpy(&current_inode,buffer,sizeof(Inode));
+                    current_inode_ptr = filetable[i]->index_file;
+                    if(dir_to_move=="..")
+                    {
+                        current_path.pop_back();
+                    }else{
+                        current_path.push_back(QString(dir_to_move.c_str()));
+                    }
+                }else{
+                    ui->listTerm->appendPlainText(QString((dir_to_move + " no es un 'dir'!").c_str()));
+                }
+                return;
+            }
+        }
+        ui->listTerm->appendPlainText(QString((dir_to_move + " no existe!").c_str()));
+    }
+}
+
+void FileSys::Export(string file_name)
+{
+    string T_name = (disks_path + mounted_disk + format).toStdString();
+    string exportTo = dirToExport.toStdString() + file_name;
+    double index_inode = searchInodeInFileTable(file_name);
+    if(index_inode!=-1){
+        cout<<"Exportando..."<<endl;
+        Inode inode;
+        char buff[sizeof(Inode)];
+        read(T_name,(char*)&buff,start_inodes + index_inode*sizeof(Inode),sizeof(Inode));
+        memcpy(&inode,buff,sizeof(Inode));
+        ExportFile(T_name,exportTo,&inode,Super_Block.sizeofblock);
     }
 }
 
@@ -688,11 +794,13 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 {
     //los permisos deben darsele afuera de esta funcion
     //el inodo como tal debe guardarse afuera de esta funcion
+    Super_Block.freespace -= size;
     if(inode->filesize==-1) //virgen
     {
         inode->filesize = size;
         inode->blockuse = 1;
         double block = getNextFreeBlock(bitmap,Super_Block.cantofblock);
+        Super_Block.freeblock--;
         inode->directos[0] = block;
         inode->lastDataBlock = block;
         write(disk,buffer,block*Super_Block.sizeofblock,size);
@@ -724,10 +832,15 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 //                for (int i = (block_used_percent*Super_Block.sizeofblock),j=0; i < size; ++i, j++) {
 //                    buffer[j] = buf_temp[i];
 //                }
+                char buf_temp[(int)size];
+                memcpy(buf_temp,buffer,size);
                 size -= free_of_block;
-                string buf_temp(buffer);
-                string buf = buf_temp.substr(free_of_block,size);
-                buffer = const_cast<char *>(buf.c_str());
+                buffer = new char[(int)size];
+                memcpy(buffer,&buf_temp[(int)(free_of_block-1)],size);
+
+//                string buf_temp(buffer);
+//                string buf = buf_temp.substr(free_of_block,size);
+//                buffer = const_cast<char *>(buf.c_str());
                 buffer[0] = 'Y';
                 cout<<"bytes copiados: "<<buffer<<endl;
             }
@@ -738,6 +851,7 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
             if(inode->blockuse < 10) //CASE 0:si los bloques de data usados son menorea a los DIRECTOS
             {
                 double block = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pide bloque libre al bitmap
+                Super_Block.freeblock--;
                 int save_to = inode->blockuse++;    //guardamos el index de la siguente posicion libre de los DIRECTOS
                 inode->directos[save_to] = block;   //guardamos la direccion del bloque en los directos
                 inode->filesize += size;            //aumentamos el filesize del archivo
@@ -749,6 +863,8 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                 if(IS_ptr==-1)                      //si aun no hemos utilizado los I_SIMPLES
                 {
                     IS_ptr = getNextFreeBlock(bitmap,Super_Block.cantofblock); //le pedimos un bloque al bitmap para el IS
+                    Super_Block.freespace -= Super_Block.sizeofblock;
+                    Super_Block.freeblock--;
                     inode->indirectossimples = IS_ptr; //actualizamos el inodo
                     //llenamos el bloque con -1 el bloque
                     for (int i = 0; i < x; ++i) {
@@ -759,6 +875,7 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                 }
 
                 double block = getNextFreeBlock(bitmap,Super_Block.cantofblock); //bloque para la data
+                Super_Block.freeblock--;
                 int save_to = inode->blockuse++ - 10; //sacamos el index en los IS donde guardaremos la direccion del bloque de data
                 IS[save_to] = block;
                 inode->filesize += size;
@@ -773,6 +890,8 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                 double *ID_IS = new double[x];
                 if (ID_ptr==-1) { //si no hemos usado I_DOBLES antes
                     ID_ptr = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pedimos un bloque para los ID
+                    Super_Block.freespace -= Super_Block.sizeofblock;
+                    Super_Block.freeblock--;
                     inode->indirectosdobles = ID_ptr; //actualizamod el inodo
                     for (int i = 0; i < x; ++i) { //lo inicializamos
                         ID[i] = -1;
@@ -786,6 +905,8 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                 {
                     //pide un bloque para añadirlo a los IS que usa el ID
                     double addIS_toDoble = getNextFreeBlock(bitmap,Super_Block.cantofblock);
+                    Super_Block.freespace -= Super_Block.sizeofblock;
+                    Super_Block.freeblock--;
                     ID[(int)IS_to_write] = addIS_toDoble; //lo agrega
                     for (int i = 0; i < x; ++i) { //lo inicializa con -1
                         ID_IS[i] = -1;
@@ -799,6 +920,7 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                 int indexInIS = b_data_ID - x*IS_to_write; //sacamos el index siguiente libre en el IS
 
                 double block = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pedimos bloque para la data
+                Super_Block.freeblock--;
                 ID_IS[indexInIS] = block; //lo guardamos el los IS que tiene el ID
                 inode->filesize += size;
                 inode->lastDataBlock = block;
@@ -815,6 +937,8 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                 if(IT_ptr == -1) //si no hemos usado IT antes
                 {
                     IT_ptr = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pedimos bloque para IT
+                    Super_Block.freespace -= Super_Block.sizeofblock;
+                    Super_Block.freeblock--;
                     inode->indirectostriples = IT_ptr; //actualizamos el inodo
                     for (int i = 0; i < x; ++i) { //lo inicializamos
                         IT[i] = -1;
@@ -828,6 +952,8 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                 {
                     //pide un bloque para añadirlo a los ID que usa el IT
                     double addID_toTriple = getNextFreeBlock(bitmap,Super_Block.cantofblock);
+                    Super_Block.freespace -= Super_Block.sizeofblock;
+                    Super_Block.freeblock--;
                     IT[(int)ID_to_write] = addID_toTriple; //lo agrega
                     for (int i = 0; i < x; ++i) { //lo inicializa
                         IT_ID[i] = -1;
@@ -844,6 +970,8 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                 {
                     //pide un bloque para añadirlo a los IS que usa el ID correspondiente
                     double addIS_toIDoble = getNextFreeBlock(bitmap,Super_Block.cantofblock);
+                    Super_Block.freespace -= Super_Block.sizeofblock;
+                    Super_Block.freeblock--;
                     IT_ID[(int)indexIS_inID] = addIS_toIDoble; //lo agrega
                     for (int i = 0; i < x; ++i) { //lo inicializa
                         IT_ID_IS[i] = -1;
@@ -857,6 +985,7 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                 int indexInIS = b_data_IT - x*IS_to_write; //calculamos el index de la DATA dentro del IS
 
                 double block = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pide bloque para la DATA
+                Super_Block.freeblock--;
                 IT_ID_IS[indexInIS] = block; //lo agrega al IS
                 inode->filesize += size;
                 inode->lastDataBlock = block;
