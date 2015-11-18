@@ -2,6 +2,7 @@
 #define FILESYS_H
 
 #include <QMainWindow>
+#include <QFileDialog>
 #include "disk.h"
 
 namespace Ui {
@@ -19,11 +20,14 @@ public:
 private slots:
     void on_txtcommandLine_returnPressed();
 
+    void on_btnAddFile_clicked();
+
 private:
     Ui::FileSys *ui;
 
 //    ofstream *diskManager = NULL;
     QString mounted_disk = "";
+    string T_name;
     bool is_mounted_disk=false;
     Inode current_inode;
     double current_inode_ptr=0;
@@ -135,6 +139,7 @@ private:
     void cd(string dir_to_move);
     void Export(string file_name);
     void cp(string file,string new_name,QString path);
+    void addFile(string filename);
 };
 
 #endif // FILESYS_H

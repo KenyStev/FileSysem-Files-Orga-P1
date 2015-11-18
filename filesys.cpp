@@ -170,6 +170,7 @@ void FileSys::mountDisk(QString disk_name)
         {
             ui->listTerm->appendPlainText("Disco: " + disk_name + " montado!");
             mounted_disk = disk_name;
+            T_name = (disks_path + mounted_disk + format).toStdString();
 
 //            SuperBlock *SB = new SuperBlock();
 
@@ -575,7 +576,7 @@ void FileSys::mkfile2(string name, int size)
     double size_bytes = size;//*pow(1024,2);
     double bloques_data = ceil(size_bytes/Super_Block.sizeofblock);
     vector<double> Total_blocks = getTotalBlocksToUse(size_bytes,Super_Block.sizeofblock);
-    string T_name = (disks_path + mounted_disk + format).toStdString();
+//    string T_name = (disks_path + mounted_disk + format).toStdString();
 
     if(Total_blocks[0] >= 0 && Super_Block.freeinode > 0)
     {
@@ -1093,6 +1094,67 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
     }
 }
 
+void FileSys::addFile(string filename)
+{
+    ifstream in(filename.c_str(),ios::in | ios::binary);
+
+    if(in.is_open())
+    {
+        in.seekg(0,ios::end);
+        double filesize = in.tellg();
+        double dataBlocks = filesize/Super_Block.sizeofblock;
+        double size_to_write = Super_Block.sizeofblock;
+        in.seekg(0,ios::beg);
+
+        cout<<"FileSize addFile: "<<filesize<<endl;
+
+        if((getTotalSizeUsed(filesize,dataBlocks,Super_Block.sizeofblock) + sizeof(FileData)) <= Super_Block.freespace)
+        {
+            string name = QString(filename.c_str()).split("/").last().toStdString();
+            double index = searchInFileTable(name);
+
+            if(index==-1)
+            {
+                index = get_NextFree_FileTable();
+                double inode = getNextFreeBlock(bitmap_inodes,Super_Block.cantofinode);
+                Super_Block.cantofinode--;
+
+                //escribiendo en el filetable general
+                strcpy(file_data_array[index]->name,name.c_str());
+                file_data_array[index]->index_file = inode;
+                write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
+
+                Inode new_inode;
+                initInode(&new_inode);
+                strcpy(new_inode.permisos,"-rwxrwxrwx");
+
+                for (int i = 0; i < dataBlocks; ++i) {
+                    if(filesize<size_to_write)
+                        size_to_write=filesize;
+                    filesize-=size_to_write;
+
+                    char buff[(int)size_to_write];
+                    in.read((char*)&buff,size_to_write);
+                    writeInode(&new_inode,T_name,(char*)&buff,size_to_write);
+                }
+                //escribiendo el inodo
+                write(T_name,(char*)&new_inode,start_inodes + inode*sizeof(Inode),sizeof(Inode));
+
+                //actualizando filetable del dir actual
+                updateFileTableFromDir(&current_inode,file_data_array[index]);
+
+                //guardar bitmaps
+                write(T_name,bitmap,start_bitmap,Super_Block.cantofblock/8);
+                write(T_name,bitmap_inodes,start_bitmap_inodes,Super_Block.cantofinode/8);
+
+                updateSuperBlock();
+            }
+        }
+    }
+
+    in.close();
+}
+
 int FileSys::searchInFileTable(string name)
 {
     for (int i = 0; i < file_data_array.size(); ++i) {
@@ -1129,4 +1191,17 @@ int FileSys::get_NextFree_FileTable()
 void FileSys::on_txtcommandLine_returnPressed()
 {
     exCommand(ui->txtcommandLine->text());
+}
+
+void FileSys::on_btnAddFile_clicked()
+{
+    if(is_mounted_disk)
+    {
+        QFileDialog *input = new QFileDialog();
+        string filePath = input->getOpenFileName().toStdString();
+        cout<<filePath.c_str()<<endl;
+        addFile(filePath);
+    }else{
+        ui->listTerm->appendPlainText("No hay disco montado.");
+    }
 }
