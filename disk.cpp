@@ -815,3 +815,203 @@ vector<FileData *> getFileTableFrom(Inode dir, char *buffer)
 }
 
 
+
+
+void copy(Inode *from, Inode *to)
+{
+    strcpy(to->permisos,from->permisos);
+    to->blockuse = from->blockuse;
+    strcpy((char*)to->directos,(char*)from->directos);
+    to->filesize = from->filesize;
+    to->indirectossimples = from->indirectossimples;
+    to->indirectosdobles = from->indirectosdobles;
+    to->indirectostriples = from->indirectostriples;
+    to->lastDataBlock = from->lastDataBlock;
+}
+
+
+vector<double> getDataBlocksFrom(string disk, Inode *inode, int sizeblock)
+{
+    vector<double> blocks;
+    double sizefile = inode->filesize;
+    double size_to_write = sizeblock;
+    int iterate = 0;
+
+    cout<<"Directos en: "<<endl;
+    for (int i = 0; i < 10; ++i) {
+        cout<<i<<"- "<<(inode->directos)[i]<<endl;
+        blocks.push_back((inode->directos)[i]);
+//        if(sizefile<size_to_write)
+//            size_to_write = sizefile;
+//        sizefile-=size_to_write;
+
+//        if((inode->directos)[i]!=-1)
+//        {
+//            char *dataBlock = new char[(int)sizeblock];
+//            read(disk,dataBlock,(inode->directos)[i]*sizeblock,size_to_write);
+////            memtransbuffer(buffer,dataBlock,iterate,size_to_write);
+//            iterate+=size_to_write;
+//            cout<<"iterate: "<<iterate<<endl;
+//        }else{
+//            return;
+//        }
+    }
+
+    //lee IS
+    int x = sizeblock/8;
+    double *buf = new double[x];
+    read(disk,(char*)buf,inode->indirectossimples*sizeblock,sizeblock);
+
+    if(inode->indirectossimples!=-1)
+    {
+        cout<<"Leido del Disco IS en!: "<<inode->indirectossimples<<endl;
+        for (int i = 0; i < x; ++i) {
+            cout<<"data en- "<<buf[i]<<endl;
+            blocks.push_back(buf[i]);
+
+//            if(sizefile<size_to_write)
+//                size_to_write = sizefile;
+//            sizefile-=size_to_write;
+
+//            if(buf[i]!=-1)
+//            {
+//                char *dataBlock = new char[(int)sizeblock];
+//                read(disk,dataBlock,buf[i]*sizeblock,size_to_write);
+////                memtransbuffer(buffer,dataBlock,iterate,size_to_write);
+//                iterate+=size_to_write;
+//                cout<<"iterate: "<<iterate<<endl;
+//            }else{
+//                return;
+//            }
+        }
+    }
+
+    //lee ID
+    read(disk,(char*)buf,inode->indirectosdobles*sizeblock,sizeblock);
+    cout<<"Leido del Disco ID en!: "<<inode->indirectosdobles<<endl;
+
+    if(inode->indirectosdobles!=-1)
+    {
+        for (int i = 0; i < x; ++i) {
+            cout<<"IS en- "<<buf[i]<<endl;
+            double *buf2 = new double[x];
+            read(disk,(char*)buf2,buf[i]*sizeblock,sizeblock);
+            if(buf[i]!=-1)
+            {
+                for (int j = 0; j < x; ++j) {
+                    cout<<"data en:- "<<buf2[j]<<endl;
+                    blocks.push_back(buf2[j]);
+
+//                    if(sizefile<size_to_write)
+//                        size_to_write = sizefile;
+//                    sizefile-=size_to_write;
+
+//                    if(buf2[j]!=-1)
+//                    {
+//                        char *dataBlock = new char[(int)sizeblock];
+//                        read(disk,dataBlock,buf2[j]*sizeblock,size_to_write);
+////                        memtransbuffer(buffer,dataBlock,iterate,size_to_write);
+//                        iterate+=size_to_write;
+//                        cout<<"iterate: "<<iterate<<endl;
+//                    }else{
+//                        return;
+//                    }
+                }
+            }
+        }
+    }
+
+    //lee IT
+    read(disk,(char*)buf,inode->indirectostriples*sizeblock,sizeblock);
+    cout<<"Leido del Disco IT en!: "<<inode->indirectostriples<<endl;
+    if(inode->indirectostriples!=-1)
+    {
+        for (int i = 0; i < x; ++i) {
+            cout<<"ID en- "<<buf[i]<<endl;
+            double *buf2 = new double[x];
+            read(disk,(char*)buf2,buf[i]*sizeblock,sizeblock);
+            if(buf[i]!=-1)
+            {
+                for (int j = 0; j < x; ++j) {
+                    cout<<"IS en- "<<buf2[j]<<endl;
+                    double *buf3 = new double[x];
+                    read(disk,(char*)buf3,buf2[j]*sizeblock,sizeblock);
+                    if(buf2[j]!=-1)
+                    {
+                        for (int k = 0; k < x; ++k) {
+                            cout<<"data en- "<<buf3[k]<<endl;
+                            blocks.push_back(buf3[k]);
+
+//                            if(sizefile<size_to_write)
+//                                size_to_write = sizefile;
+//                            sizefile-=size_to_write;
+
+//                            if(buf3[k]!=-1)
+//                            {
+//                                char *dataBlock = new char[(int)sizeblock];
+//                                read(disk,dataBlock,buf3[k]*sizeblock,size_to_write);
+////                                memtransbuffer(buffer,dataBlock,iterate,size_to_write);
+//                                iterate+=size_to_write;
+//                                cout<<"iterate: "<<iterate<<endl;
+//                            }else{
+//                                return;
+//                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return blocks;
+}
+
+
+double getTotalSizeUsed(double filesize,double blocks_data, double sizeblock)
+{
+    int x = sizeblock/8;
+    double extra_blocks = 0;
+
+    if(blocks_data <= 10){ //case: 0
+        extra_blocks = 0;
+//        T_blocks.push_back(0);
+//        T_blocks.push_back(ceil(file_size/block_size));   //cuantos bloques de data los Directos simples uso? index: 1
+    }else if(blocks_data <= (10 + x)){ //case: 1
+        extra_blocks = 1;
+//        T_blocks.push_back(1);
+//        T_blocks.push_back(blocks_data-10);               //cuantos bloques de data va a usar el IS? index: 1
+    }else if(blocks_data <= (10 + x + pow(x,2))){ //case: 2
+        double blocks_temp = blocks_data - (10 + x);
+        extra_blocks = ceil(blocks_temp/x) + 2;
+//        T_blocks.push_back(2);
+//        T_blocks.push_back(x);                            //cuantos bloques de data va a usar el IS? index: 1
+//        T_blocks.push_back(ceil(blocks_temp/x));          //cuantos IS va a usar el ID? index: 2
+//        T_blocks.push_back(blocks_temp);                  //cuantos bloques de data van a usar los IS del ID? index: 3
+    }else if(blocks_data <= (10 + x + pow(x,2) + pow(x,3))){ //case: 3
+        double blocks_temp = blocks_data - (10 + x + pow(x,2));
+        extra_blocks = ceil(blocks_temp/(pow(x,2))) + ceil(blocks_temp/x) + 3 + x;//(blocks_temp*(1+x))/(pow(x,2)) + 3 + x;//blocks_temp/(pow(x,2)) + blocks_temp/x + 3;
+//        T_blocks.push_back(3);
+//        T_blocks.push_back(x);                            //cuantos bloques de data va a usar el IS? index: 1
+//        T_blocks.push_back(x);                            //cuantos IS va a usar el ID? index: 2
+//        T_blocks.push_back(pow(x,2));                     //cuantos bloques de data van a usar los IS del ID? index: 3
+//        T_blocks.push_back(ceil(blocks_temp/(pow(x,2)))); //cuantos ID va usar el IT? index: 4
+//        T_blocks.push_back(ceil(blocks_temp/x));          //cuantos IS van a usar los ID del IT? index: 5
+//        T_blocks.push_back(blocks_temp);                  //cuantos bloques de data van a usar los Is de los ID del IT? index: 6
+    }
+
+    return filesize + extra_blocks*sizeblock;
+}
+
+
+void initInode(Inode *inode)
+{
+    inode->filesize = -1;
+    inode->blockuse = -1;
+    for (int i = 0; i < 10; ++i) {
+        (inode->directos)[i] = -1;
+    }
+    inode->indirectossimples = -1;
+    inode->indirectosdobles = -1;
+    inode->indirectostriples = -1;
+    inode->lastDataBlock = -1;
+    strcpy(inode->permisos,"----------");
+}

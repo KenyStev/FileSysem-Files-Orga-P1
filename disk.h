@@ -194,4 +194,11 @@ void memtransbuffer(char *&dest, char *src, double init , double size_src);
  */
 vector<FileData*> getFileTableFrom(Inode dir, char* buffer);
 
+vector<double> getDataBlocksFrom(string disk,Inode *inode,int sizeblock);
+
+void copy(Inode *from, Inode *to);
+
+double getTotalSizeUsed(double filesize,double blocks_data, double sizeblock);
+void initInode(Inode *inode);
+
 #endif // DISK_H

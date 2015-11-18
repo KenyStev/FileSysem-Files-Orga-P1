@@ -142,9 +142,12 @@ void FileSys::exCommand(QString command_line)
             {
                 if(commands.size()==1)
                     Export(commands.at(0).toStdString());
-            }else if(main_command == "cp") // copiar un archivo de un lugar a otro form: cp [name] [path]
+            }else if(main_command == "cp") // copiar un archivo de un lugar a otro form: cp [name] [new name] [path]
             {
-
+                if(commands.size()==3)
+                {
+                    cp(commands.at(0).toStdString(),commands.at(1).toStdString(),commands.at(2));
+                }
             }
         }else{
             ui->listTerm->appendPlainText(main_command + " is not a valid command");
@@ -341,8 +344,10 @@ void FileSys::mkfile(string name, int size)
     string T_name = (disks_path + mounted_disk + format).toStdString();
     int index = searchInFileTable(name);
     cout<<"Free size disk antes: "<<Super_Block.freespace<<endl;
+    int x = Super_Block.sizeofblock/8;
+    double totalSizeInode = (10 + x + pow(x,2) + pow(x,3))*Super_Block.sizeofblock;
 
-    if(index == -1 && Super_Block.freeinode > 0 && Total_blocks[Total_blocks.size()-1] <= Super_Block.freeblock)
+    if(index == -1 && Super_Block.freeinode > 0 && Total_blocks[Total_blocks.size()-1] <= Super_Block.freeblock && current_inode.filesize < totalSizeInode)
     {
 //        Super_Block.freespace -= size_bytes;
 
@@ -468,34 +473,35 @@ void FileSys::mkfile(string name, int size)
                 }
             }
         }
-    }else{
-        cout<<"Ya existe el nombre"<<endl;
-        double inode = file_data_array[index]->index_file;
-        char *buffer = new char[sizeof(Inode)];
-        Inode new_inode;
-        read(T_name, buffer,start_inodes + inode*sizeof(Inode),sizeof(Inode));
-        memcpy(&new_inode,buffer,sizeof(Inode));
-        cout<<"lastDataBlock: "<<new_inode.lastDataBlock<<endl;
-
-        double size_bytes_temp = size_bytes;
-        double size_to_write = Super_Block.sizeofblock;
-        for (int i = 0; i < bloques_data; ++i) {
-            char *buffer = new char[Super_Block.sizeofblock];
-            for (int i = 0; i < Super_Block.sizeofblock; ++i) {
-                buffer[i] = 'K';//rand()%25 + 65;
-            }
-            if(size_bytes_temp<size_to_write)
-                size_to_write = size_bytes_temp;
-            size_bytes_temp-=size_to_write;
-            writeInode(&new_inode,T_name,buffer,size_to_write);
-        }
-        //escribiendo inodo en el disco
-        write(T_name,(char*)&new_inode,start_inodes + inode*sizeof(Inode),sizeof(Inode));
-        cout<<"termino de escribir!"<<endl;
-
-        //escribimos el superblock
-        updateSuperBlock();
     }
+//    else{
+//        cout<<"Ya existe el nombre"<<endl;
+//        double inode = file_data_array[index]->index_file;
+//        char *buffer = new char[sizeof(Inode)];
+//        Inode new_inode;
+//        read(T_name, buffer,start_inodes + inode*sizeof(Inode),sizeof(Inode));
+//        memcpy(&new_inode,buffer,sizeof(Inode));
+//        cout<<"lastDataBlock: "<<new_inode.lastDataBlock<<endl;
+
+//        double size_bytes_temp = size_bytes;
+//        double size_to_write = Super_Block.sizeofblock;
+//        for (int i = 0; i < bloques_data; ++i) {
+//            char *buffer = new char[Super_Block.sizeofblock];
+//            for (int i = 0; i < Super_Block.sizeofblock; ++i) {
+//                buffer[i] = 'K';//rand()%25 + 65;
+//            }
+//            if(size_bytes_temp<size_to_write)
+//                size_to_write = size_bytes_temp;
+//            size_bytes_temp-=size_to_write;
+//            writeInode(&new_inode,T_name,buffer,size_to_write);
+//        }
+//        //escribiendo inodo en el disco
+//        write(T_name,(char*)&new_inode,start_inodes + inode*sizeof(Inode),sizeof(Inode));
+//        cout<<"termino de escribir!"<<endl;
+
+//        //escribimos el superblock
+//        updateSuperBlock();
+//    }
     cout<<"Free size disk: "<<Super_Block.freespace<<endl;
 }
 
@@ -721,7 +727,7 @@ void FileSys::ls()
 
     vector<FileData*> filetable = getFileTableFrom(current_inode,all_datablocks);
     cout<<"current path: "<<current_path.join("/").toStdString().c_str()<<endl;
-    string titles = "permisios\towner\tgroup\tsize\tname";
+    string titles = "permisos\towner\tgroup\tsize\tname";
     ui->listTerm->appendPlainText(QString(titles.c_str()));
     for (int i = 0; i < filetable.size(); ++i) {
         cout<<"Nombre: "<<filetable[i]->name<<" index: "<<filetable[i]->index_file<<endl;
@@ -787,6 +793,92 @@ void FileSys::Export(string file_name)
         read(T_name,(char*)&buff,start_inodes + index_inode*sizeof(Inode),sizeof(Inode));
         memcpy(&inode,buff,sizeof(Inode));
         ExportFile(T_name,exportTo,&inode,Super_Block.sizeofblock);
+    }
+}
+
+void FileSys::cp(string file, string new_name, QString path)
+{
+    string T_name = (disks_path + mounted_disk + format).toStdString();
+    QStringList path_list = path.split("/");
+    QString dir = path_list.last();
+
+    int index = searchInFileTable(dir.toStdString());
+    if(index!=-1)
+    {
+        if(Super_Block.freeinode>0)
+        {
+
+
+            char buff[sizeof(Inode)];
+            Inode dir_to;
+            cout<<"DIR to COPY: "<<dir.toStdString().c_str()<<endl;
+            read(T_name,(char*)&buff,start_inodes + (file_data_array[index]->index_file)*sizeof(Inode),sizeof(Inode));
+            memcpy(&dir_to,buff,sizeof(Inode));
+
+            char *all_datablocks;
+            readDataBlocksFrom(T_name,all_datablocks,&current_inode,Super_Block.sizeofblock);
+
+            vector<FileData*> filetable = getFileTableFrom(current_inode,all_datablocks);
+            Inode from,to;
+            initInode(&to);
+            bool found=false;
+
+            for (int i = 0; i < filetable.size(); ++i) {
+                if(strcmp(filetable[i]->name,file.c_str())==0)
+                {
+                    read(T_name,(char*)&buff,start_inodes + (filetable[i]->index_file)*sizeof(Inode),sizeof(Inode));
+                    memcpy(&from,&buff,sizeof(Inode));
+                    found=true;
+                    break;
+                }
+            }
+
+            if(found)
+            {
+                cout<<"encontrado: "<<file.c_str()<<endl;
+                if(from.permisos[0]=='-')
+                {
+                    strcpy(to.permisos,from.permisos);
+                    if((getTotalSizeUsed(from.filesize,from.blockuse,Super_Block.sizeofblock) + sizeof(FileData)) <= Super_Block.freespace)
+                    {
+                        double inode = getNextFreeBlock(bitmap_inodes,Super_Block.cantofinode);
+                        double size_to_write = Super_Block.sizeofblock;
+                        double size = from.filesize;
+                        vector<double> blocks = getDataBlocksFrom(T_name,&from,size_to_write);
+
+                        for (int i = 0; i < blocks.size(); ++i) {
+                            if(size<size_to_write)
+                                size_to_write=size;
+                            size-=size_to_write;
+
+                            char buffer[(int)size_to_write];
+                            read(T_name,(char*)buffer,blocks[i]*(Super_Block.sizeofblock),size_to_write);
+                            cout<<"DATA leida: "<<buffer<<endl;
+                            writeInode(&to,T_name,(char*)buffer,size_to_write);
+                        }
+                        //escribimos el inodo
+                        write(T_name,(char*)&to,start_inodes + inode*sizeof(Inode),sizeof(Inode));
+                        //escribimos filetable
+                        double index_FT = get_NextFree_FileTable();
+                        strcpy(file_data_array[(int)index_FT]->name,new_name.c_str());
+                        file_data_array[(int)index_FT]->index_file = inode;
+                        write(T_name,(char*)file_data_array[(int)index_FT],start_filetable + index_FT*sizeof(FileData),sizeof(FileData));
+
+                        //escribiendo filedata del directorio donde se copiara
+                        updateFileTableFromDir(&dir_to,file_data_array[(int)index_FT]);
+
+                        //escribiendo inode dir_to
+                        write(T_name,(char*)&dir_to,start_inodes + (file_data_array[index]->index_file)*sizeof(Inode),sizeof(Inode));
+
+                        //guardar bitmaps
+                        write(T_name,bitmap,start_bitmap,Super_Block.cantofblock/8);
+                        write(T_name,bitmap_inodes,start_bitmap_inodes,Super_Block.cantofinode/8);
+
+                        updateSuperBlock();
+                    }
+                }
+            }
+        }
     }
 }
 

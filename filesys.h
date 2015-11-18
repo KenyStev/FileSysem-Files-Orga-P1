@@ -134,6 +134,7 @@ private:
     void ls();
     void cd(string dir_to_move);
     void Export(string file_name);
+    void cp(string file,string new_name,QString path);
 };
 
 #endif // FILESYS_H
