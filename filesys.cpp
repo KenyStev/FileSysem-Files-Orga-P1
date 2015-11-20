@@ -137,7 +137,8 @@ void FileSys::exCommand(QString command_line)
                 }
             }else if(main_command == "rm") // delete file or dir form: rm [name]
             {
-
+                if(commands.size()==1)
+                    rm(commands.at(0).toStdString());
             }else if(main_command == "export") // exportar fuera del disco form: export [file_name]
             {
                 if(commands.size()==1)
@@ -722,25 +723,29 @@ void FileSys::updateSuperBlock()
 
 void FileSys::ls()
 {
-    string T_name = (disks_path + mounted_disk + format).toStdString();
-    char *all_datablocks;
-    readDataBlocksFrom(T_name,all_datablocks,&current_inode,Super_Block.sizeofblock);
+    if(is_mounted_disk){
+        string titles = "permisos\towner\tgroup\tsize\tname";
+        ui->listTerm->appendPlainText(QString(titles.c_str()));
+        if(current_inode.filesize>0){
+            string T_name = (disks_path + mounted_disk + format).toStdString();
+            char *all_datablocks;
+            readDataBlocksFrom(T_name,all_datablocks,&current_inode,Super_Block.sizeofblock);
 
-    vector<FileData*> filetable = getFileTableFrom(current_inode,all_datablocks);
-    cout<<"current path: "<<current_path.join("/").toStdString().c_str()<<endl;
-    string titles = "permisos\towner\tgroup\tsize\tname";
-    ui->listTerm->appendPlainText(QString(titles.c_str()));
-    for (int i = 0; i < filetable.size(); ++i) {
-        cout<<"Nombre: "<<filetable[i]->name<<" index: "<<filetable[i]->index_file<<endl;
-        if(strcmp(filetable[i]->name,"..")!=0)
-        {
-            char *buffer = new char[sizeof(Inode)];
-            Inode *inode = new Inode();
-            read(T_name,buffer,start_inodes + (filetable[i]->index_file)*sizeof(Inode),sizeof(Inode));
-            memcpy(inode,buffer,sizeof(Inode));
-            string file = string(inode->permisos) + "\troot\troot\t" + QString::number(inode->filesize).toStdString() + "\t" + string(filetable[i]->name);
-            cout<<file.c_str()<<endl;
-            ui->listTerm->appendPlainText(QString(file.c_str()));
+            vector<FileData*> filetable = getFileTableFrom(current_inode,all_datablocks);
+            cout<<"current path: "<<current_path.join("/").toStdString().c_str()<<endl;
+            for (int i = 0; i < filetable.size(); ++i) {
+                cout<<"Nombre: "<<filetable[i]->name<<" index: "<<filetable[i]->index_file<<endl;
+                if(strcmp(filetable[i]->name,"..")!=0)
+                {
+                    char *buffer = new char[sizeof(Inode)];
+                    Inode *inode = new Inode();
+                    read(T_name,buffer,start_inodes + (filetable[i]->index_file)*sizeof(Inode),sizeof(Inode));
+                    memcpy(inode,buffer,sizeof(Inode));
+                    string file = string(inode->permisos) + "\troot\troot\t" + QString::number(inode->filesize).toStdString() + "\t" + string(filetable[i]->name);
+                    cout<<file.c_str()<<endl;
+                    ui->listTerm->appendPlainText(QString(file.c_str()));
+                }
+            }
         }
     }
 }
@@ -799,7 +804,7 @@ void FileSys::Export(string file_name)
 
 void FileSys::cp(string file, string new_name, QString path)
 {
-    string T_name = (disks_path + mounted_disk + format).toStdString();
+//    string T_name = (disks_path + mounted_disk + format).toStdString();
     QStringList path_list = path.split("/");
     QString dir = path_list.last();
 
@@ -1155,6 +1160,70 @@ void FileSys::addFile(string filename)
     in.close();
 }
 
+void FileSys::rm(string filename)
+{
+    if(is_mounted_disk)
+    {
+        double indexFileTableGlobal = searchInFileTable(filename);
+
+        if(indexFileTableGlobal>=0)
+        {
+            cout<<"Eliminando "<<filename.c_str()<<endl;
+            char *all_datablocks;
+            readDataBlocksFrom(T_name,all_datablocks,&current_inode,Super_Block.sizeofblock);
+
+            vector<FileData*> filetable = getFileTableFrom(current_inode,all_datablocks);
+            int indexFileInFileTable = -1;
+            Inode toDelete;
+            char buff[sizeof(Inode)];
+
+            for (int i = 0; i < filetable.size(); ++i) {
+                if(strcmp(filetable[i]->name,filename.c_str())==0)
+                {
+                    read(T_name,(char*)&buff,start_inodes + (filetable[i]->index_file)*sizeof(Inode),sizeof(Inode));
+                    memcpy(&toDelete,&buff,sizeof(Inode));
+                    indexFileInFileTable = i;
+                    cout<<"indexFileInFileTable: "<<indexFileInFileTable<<endl;
+                    break;
+                }
+            }
+
+            if(indexFileInFileTable>=0)
+            {
+                if(toDelete.permisos[0]=='-')
+                {
+                    double inode_index = filetable[indexFileInFileTable]->index_file;
+                    cout<<"inode_index: "<<inode_index<<endl;
+                    filetable.erase(filetable.begin() + indexFileInFileTable);
+                    strcpy(file_data_array[(int)indexFileTableGlobal]->name,"");
+                    file_data_array[(int)indexFileTableGlobal]->index_file = -1;
+                    vector<double> blocksUsedForDir = getAllBlocksUsedFor(T_name,&current_inode,Super_Block.sizeofblock);
+                    vector<double> blocksUdedForFile = getAllBlocksUsedFor(T_name,&toDelete,Super_Block.sizeofblock);
+                    initInode(&toDelete);
+                    initInode(&current_inode);
+                    strcpy(current_inode.permisos,"drwxrwxrwx");
+                    write(T_name,(char*)&toDelete,start_inodes + inode_index*sizeof(Inode),sizeof(Inode));
+                    write(T_name,(char*)file_data_array[(int)indexFileTableGlobal],start_filetable + indexFileTableGlobal*sizeof(FileData),sizeof(FileData));
+                    setBlock_unuse(bitmap_inodes,inode_index);
+                    set_blocks_in_unuse(bitmap,blocksUsedForDir);
+                    set_blocks_in_unuse(bitmap,blocksUdedForFile);
+
+                    //guardar bitmaps
+                    write(T_name,bitmap,start_bitmap,Super_Block.cantofblock/8);
+                    write(T_name,bitmap_inodes,start_bitmap_inodes,Super_Block.cantofinode/8);
+
+                    for (int i = 0; i < filetable.size(); ++i) {
+                        updateFileTableFromDir(&current_inode,filetable[i]);
+                    }
+                    write(T_name,(char*)&current_inode,start_inodes + current_inode_ptr*sizeof(Inode),sizeof(Inode));
+
+                    updateSuperBlock();
+                }
+            }
+        }
+    }
+}
+
 int FileSys::searchInFileTable(string name)
 {
     for (int i = 0; i < file_data_array.size(); ++i) {
@@ -1203,5 +1272,36 @@ void FileSys::on_btnAddFile_clicked()
         addFile(filePath);
     }else{
         ui->listTerm->appendPlainText("No hay disco montado.");
+    }
+}
+
+void FileSys::on_btnBlocks_clicked()
+{
+    BlocksBox *blocks = new BlocksBox(NULL,Super_Block.cantofblock,Super_Block.FS_Blocks);
+    blocks->show();
+
+    while(true)
+    {
+        if(blocks->ready())
+        {
+            for (int i = 0; i < file_data_array.size(); ++i) {
+                if(file_data_array[i]->index_file!=-1){
+                    blocks->newColor();
+                    char buf[sizeof(Inode)];
+                    Inode inode;
+                    initInode(&inode);
+
+                    read(T_name,(char*)&buf,start_inodes + file_data_array[i]->index_file*sizeof(Inode),sizeof(Inode));
+                    memcpy(&inode,buf,sizeof(Inode));
+
+                    vector<double> AllBlocks = getAllBlocksUsedFor(T_name,&inode,Super_Block.sizeofblock);
+
+                    for (int j = 0; j < AllBlocks.size(); ++j) {
+                        blocks->setColorTo(AllBlocks[j]);
+                    }
+                }
+            }
+            break;
+        }
     }
 }

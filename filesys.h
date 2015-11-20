@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QFileDialog>
+#include <blocksbox.h>
 #include "disk.h"
 
 namespace Ui {
@@ -21,6 +22,8 @@ private slots:
     void on_txtcommandLine_returnPressed();
 
     void on_btnAddFile_clicked();
+
+    void on_btnBlocks_clicked();
 
 private:
     Ui::FileSys *ui;
@@ -140,6 +143,7 @@ private:
     void Export(string file_name);
     void cp(string file,string new_name,QString path);
     void addFile(string filename);
+    void rm(string filename);
 };
 
 #endif // FILESYS_H

@@ -38,7 +38,7 @@ SuperBlock createDisk(char name[],double size_disk, int size_block){
                                             + FileData_size*(SP.cantofinode);
 
     double FS_blocks_WR = total_size_fs/size_block;
-    int FS_blocks = FS_blocks_WR+1;
+    int FS_blocks = ceil(FS_blocks_WR);
 
     SP.freeblock = cantofblock - FS_blocks;
     SP.freeinode = SP.cantofinode - 1;
@@ -46,6 +46,7 @@ SuperBlock createDisk(char name[],double size_disk, int size_block){
     strcpy(SP.name, name);
     SP.size = disksizebyte;
     SP.sizeofblock = size_block;
+    SP.FS_Blocks = FS_blocks;
     strcpy(SP.endsb, "FIN");
     cout<<"writing Super Block with size: "<<sizeof(SuperBlock)<<endl;
     cout<<"cant blocks: "<<SP.cantofblock<<endl;
@@ -304,7 +305,7 @@ void set_blocks_in_use(char *bitmap, vector<int> blocks)
 }
 
 
-void set_blocks_in_unuse(char *bitmap, vector<int> blocks)
+void set_blocks_in_unuse(char *bitmap, vector<double> blocks)
 {
     for (int i = 0; i < blocks.size(); ++i) {
         setBlock_unuse(bitmap,blocks[i]);
@@ -841,20 +842,6 @@ vector<double> getDataBlocksFrom(string disk, Inode *inode, int sizeblock)
     for (int i = 0; i < 10; ++i) {
         cout<<i<<"- "<<(inode->directos)[i]<<endl;
         blocks.push_back((inode->directos)[i]);
-//        if(sizefile<size_to_write)
-//            size_to_write = sizefile;
-//        sizefile-=size_to_write;
-
-//        if((inode->directos)[i]!=-1)
-//        {
-//            char *dataBlock = new char[(int)sizeblock];
-//            read(disk,dataBlock,(inode->directos)[i]*sizeblock,size_to_write);
-////            memtransbuffer(buffer,dataBlock,iterate,size_to_write);
-//            iterate+=size_to_write;
-//            cout<<"iterate: "<<iterate<<endl;
-//        }else{
-//            return;
-//        }
     }
 
     //lee IS
@@ -868,21 +855,6 @@ vector<double> getDataBlocksFrom(string disk, Inode *inode, int sizeblock)
         for (int i = 0; i < x; ++i) {
             cout<<"data en- "<<buf[i]<<endl;
             blocks.push_back(buf[i]);
-
-//            if(sizefile<size_to_write)
-//                size_to_write = sizefile;
-//            sizefile-=size_to_write;
-
-//            if(buf[i]!=-1)
-//            {
-//                char *dataBlock = new char[(int)sizeblock];
-//                read(disk,dataBlock,buf[i]*sizeblock,size_to_write);
-////                memtransbuffer(buffer,dataBlock,iterate,size_to_write);
-//                iterate+=size_to_write;
-//                cout<<"iterate: "<<iterate<<endl;
-//            }else{
-//                return;
-//            }
         }
     }
 
@@ -901,21 +873,6 @@ vector<double> getDataBlocksFrom(string disk, Inode *inode, int sizeblock)
                 for (int j = 0; j < x; ++j) {
                     cout<<"data en:- "<<buf2[j]<<endl;
                     blocks.push_back(buf2[j]);
-
-//                    if(sizefile<size_to_write)
-//                        size_to_write = sizefile;
-//                    sizefile-=size_to_write;
-
-//                    if(buf2[j]!=-1)
-//                    {
-//                        char *dataBlock = new char[(int)sizeblock];
-//                        read(disk,dataBlock,buf2[j]*sizeblock,size_to_write);
-////                        memtransbuffer(buffer,dataBlock,iterate,size_to_write);
-//                        iterate+=size_to_write;
-//                        cout<<"iterate: "<<iterate<<endl;
-//                    }else{
-//                        return;
-//                    }
                 }
             }
         }
@@ -941,21 +898,6 @@ vector<double> getDataBlocksFrom(string disk, Inode *inode, int sizeblock)
                         for (int k = 0; k < x; ++k) {
                             cout<<"data en- "<<buf3[k]<<endl;
                             blocks.push_back(buf3[k]);
-
-//                            if(sizefile<size_to_write)
-//                                size_to_write = sizefile;
-//                            sizefile-=size_to_write;
-
-//                            if(buf3[k]!=-1)
-//                            {
-//                                char *dataBlock = new char[(int)sizeblock];
-//                                read(disk,dataBlock,buf3[k]*sizeblock,size_to_write);
-////                                memtransbuffer(buffer,dataBlock,iterate,size_to_write);
-//                                iterate+=size_to_write;
-//                                cout<<"iterate: "<<iterate<<endl;
-//                            }else{
-//                                return;
-//                            }
                         }
                     }
                 }
@@ -965,6 +907,94 @@ vector<double> getDataBlocksFrom(string disk, Inode *inode, int sizeblock)
     return blocks;
 }
 
+vector<double> getAllBlocksUsedFor(string disk, Inode *inode, int sizeblock)
+{
+    vector<double> blocks;
+    double sizefile = inode->filesize;
+    double size_to_write = sizeblock;
+    int iterate = 0;
+
+    cout<<"Directos en: "<<endl;
+    for (int i = 0; i < 10; ++i) {
+        cout<<i<<"- "<<(inode->directos)[i]<<endl;
+        if(inode->directos[i]!=-1)
+            blocks.push_back((inode->directos)[i]);
+//        else
+//            return;
+    }
+
+    //lee IS
+    int x = sizeblock/8;
+    double *buf = new double[x];
+    read(disk,(char*)buf,inode->indirectossimples*sizeblock,sizeblock);
+
+    if(inode->indirectossimples!=-1)
+    {
+        blocks.push_back(inode->indirectossimples);
+        cout<<"Leido del Disco IS en!: "<<inode->indirectossimples<<endl;
+        for (int i = 0; i < x; ++i) {
+            cout<<"data en- "<<buf[i]<<endl;
+            if(buf[i]!=-1)
+                blocks.push_back(buf[i]);
+        }
+    }
+
+    //lee ID
+    read(disk,(char*)buf,inode->indirectosdobles*sizeblock,sizeblock);
+    cout<<"Leido del Disco ID en!: "<<inode->indirectosdobles<<endl;
+
+    if(inode->indirectosdobles!=-1)
+    {
+        blocks.push_back(inode->indirectosdobles);
+        for (int i = 0; i < x; ++i) {
+            cout<<"IS en- "<<buf[i]<<endl;
+            if(buf[i]!=-1)
+            {
+                blocks.push_back(buf[i]);
+                double *buf2 = new double[x];
+                read(disk,(char*)buf2,buf[i]*sizeblock,sizeblock);
+
+                for (int j = 0; j < x; ++j) {
+                    cout<<"data en:- "<<buf2[j]<<endl;
+                    if(buf2[j]!=-1)
+                        blocks.push_back(buf2[j]);
+                }
+            }
+        }
+    }
+
+    //lee IT
+    read(disk,(char*)buf,inode->indirectostriples*sizeblock,sizeblock);
+    cout<<"Leido del Disco IT en!: "<<inode->indirectostriples<<endl;
+    if(inode->indirectostriples!=-1)
+    {
+        blocks.push_back(inode->indirectostriples);
+        for (int i = 0; i < x; ++i) {
+            cout<<"ID en- "<<buf[i]<<endl;
+            double *buf2 = new double[x];
+            read(disk,(char*)buf2,buf[i]*sizeblock,sizeblock);
+            if(buf[i]!=-1)
+            {
+                blocks.push_back(buf[i]);
+                for (int j = 0; j < x; ++j) {
+                    cout<<"IS en- "<<buf2[j]<<endl;
+                    double *buf3 = new double[x];
+                    read(disk,(char*)buf3,buf2[j]*sizeblock,sizeblock);
+                    if(buf2[j]!=-1)
+                    {
+                        blocks.push_back(buf2[j]);
+                        for (int k = 0; k < x; ++k) {
+                            cout<<"data en- "<<buf3[k]<<endl;
+                            if(buf3[k]!=-1)
+                                blocks.push_back(buf3[k]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return blocks;
+}
 
 double getTotalSizeUsed(double filesize,double blocks_data, double sizeblock)
 {

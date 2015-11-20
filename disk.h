@@ -22,6 +22,7 @@ struct SuperBlock {
     double freeblock;
     double freespace;
     double freeinode;
+    int FS_Blocks;
     int cantofblock;
     int cantofinode;
     int sizeofblock;
@@ -152,7 +153,7 @@ void set_blocks_in_use(char *bitmap, vector<int> blocks);
  * @param bitmap
  * @param blocks
  */
-void set_blocks_in_unuse(char *bitmap, vector<int> blocks);
+void set_blocks_in_unuse(char *bitmap, vector<double> blocks);
 
 /**
  * @brief readDataBlocksFrom lee todos los bloques de data que tiene un inodo y los carga a la RAM.
@@ -195,6 +196,7 @@ void memtransbuffer(char *&dest, char *src, double init , double size_src);
 vector<FileData*> getFileTableFrom(Inode dir, char* buffer);
 
 vector<double> getDataBlocksFrom(string disk,Inode *inode,int sizeblock);
+vector<double> getAllBlocksUsedFor(string disk, Inode *inode, int sizeblock);
 
 void copy(Inode *from, Inode *to);
 

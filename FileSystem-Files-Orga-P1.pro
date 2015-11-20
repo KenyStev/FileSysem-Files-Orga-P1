@@ -14,9 +14,12 @@ TEMPLATE = app
 
 SOURCES += main.cpp\
         filesys.cpp \
-    disk.cpp
+    disk.cpp \
+    blocksbox.cpp
 
 HEADERS  += filesys.h \
-    disk.h
+    disk.h \
+    blocksbox.h
 
-FORMS    += filesys.ui
+FORMS    += filesys.ui \
+    blocksbox.ui
