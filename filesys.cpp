@@ -1103,7 +1103,7 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 void FileSys::addFile(string filename)
 {
     if(is_mounted_disk){
-        ifstream in(filename.c_str(),ios::in | ios::binary);
+        ifstream in(filename.c_str(),ios::in | ios::out | ios::binary);
 
         if(in.is_open())
         {
@@ -1124,7 +1124,7 @@ void FileSys::addFile(string filename)
                 {
                     index = get_NextFree_FileTable();
                     double inode = getNextFreeBlock(bitmap_inodes,Super_Block.cantofinode);
-                    Super_Block.cantofinode--;
+                    Super_Block.freeinode--;
 
                     //escribiendo en el filetable general
                     strcpy(file_data_array[index]->name,name.c_str());

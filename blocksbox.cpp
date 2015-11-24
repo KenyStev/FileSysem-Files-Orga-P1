@@ -42,7 +42,8 @@ BlocksBox::BlocksBox(QWidget *parent,vector<FileData*> *file_data_array,double c
                 vector<double> AllBlocks = getAllBlocksUsedFor(disk,&inode,sizeofblock);
 
                 for (int j = 0; j < AllBlocks.size(); ++j) {
-                    setColorTo(AllBlocks[j]);
+//                    setColorTo(AllBlocks[j]);
+                    listItems[AllBlocks[j]]->setBackground(QBrush(QColor(r,g,b)));
                 }
             }
         }
