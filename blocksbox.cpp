@@ -1,7 +1,7 @@
 #include "blocksbox.h"
 #include "ui_blocksbox.h"
 
-BlocksBox::BlocksBox(QWidget *parent,double cantOfBlocks,double FS_Blocks) :
+BlocksBox::BlocksBox(QWidget *parent,vector<FileData*> *file_data_array,double cantOfBlocks,double FS_Blocks,int sizeofblock, double start_inodes,string disk) :
     QWidget(parent),
     ui(new Ui::BlocksBox)
 {
@@ -26,6 +26,28 @@ BlocksBox::BlocksBox(QWidget *parent,double cantOfBlocks,double FS_Blocks) :
         ui->tableBlocks->setItem(ui->tableBlocks->rowCount()-1,cont++,item);
         listItems.push_back(item);
     }
+
+    srand (time(NULL));
+    if(file_data_array->size()>0){
+        for (int i = 0; i < file_data_array->size(); ++i) {
+            if((*file_data_array)[i]->index_file!=-1){
+                newColor();
+                char buf[sizeof(Inode)];
+                Inode inode;
+                initInode(&inode);
+
+                read(disk,(char*)&buf,start_inodes + (*file_data_array)[i]->index_file*sizeof(Inode),sizeof(Inode));
+                memcpy(&inode,buf,sizeof(Inode));
+
+                vector<double> AllBlocks = getAllBlocksUsedFor(disk,&inode,sizeofblock);
+
+                for (int j = 0; j < AllBlocks.size(); ++j) {
+                    setColorTo(AllBlocks[j]);
+                }
+            }
+        }
+    }
+
     isReady=true;
 }
 
@@ -44,7 +66,7 @@ void BlocksBox::setColorTo(double block)
     QTableWidgetItem *item = search(QString::number(block));
     int column = ui->tableBlocks->column(item);
     int row = ui->tableBlocks->row(item);
-    cout<<"colRow: "<<column<<" "<<row<<endl;
+    //cout<<"colRow: "<<column<<" "<<row<<endl;
     item->setBackground(QBrush(QColor(r,g,b)));
 }
 
@@ -56,7 +78,6 @@ void BlocksBox::setColorTo(double block, int r, int g, int b)
 
 void BlocksBox::newColor()
 {
-    srand (time(NULL));
     while(true){
         r = rand()%256;
         g = rand()%256;

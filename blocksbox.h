@@ -5,6 +5,7 @@
 #include <QStringList>
 #include <iostream>
 #include <QTableWidgetItem>
+#include "disk.h"
 
 using namespace std;
 
@@ -17,7 +18,7 @@ class BlocksBox : public QWidget
     Q_OBJECT
 
 public:
-    explicit BlocksBox(QWidget *parent = 0,double cantOfBlocks=0,double FS_Blocks=0);
+    explicit BlocksBox(QWidget *parent = 0,vector<FileData*> *file_data_array=0,double cantOfBlocks=0,double FS_Blocks=0,int sizeofblock=0, double start_inodes=0,string disk="");
 
     ~BlocksBox();
     void addRow();

@@ -15,11 +15,15 @@ TEMPLATE = app
 SOURCES += main.cpp\
         filesys.cpp \
     disk.cpp \
-    blocksbox.cpp
+    blocksbox.cpp \
+    tree.cpp
 
 HEADERS  += filesys.h \
     disk.h \
-    blocksbox.h
+    blocksbox.h \
+    tree.h \
+    nodo.h
 
 FORMS    += filesys.ui \
-    blocksbox.ui
+    blocksbox.ui \
+    tree.ui

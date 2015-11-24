@@ -3,7 +3,8 @@
 
 #include <QMainWindow>
 #include <QFileDialog>
-#include <blocksbox.h>
+#include "blocksbox.h"
+#include "tree.h"
 #include "disk.h"
 
 namespace Ui {
@@ -25,10 +26,15 @@ private slots:
 
     void on_btnBlocks_clicked();
 
+    void on_btnTrees_clicked();
+
 private:
     Ui::FileSys *ui;
 
 //    ofstream *diskManager = NULL;
+    BlocksBox *blocks=NULL;
+    Tree *tree=NULL;
+
     QString mounted_disk = "";
     string T_name;
     bool is_mounted_disk=false;

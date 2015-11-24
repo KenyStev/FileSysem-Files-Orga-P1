@@ -9,7 +9,7 @@ FileSys::FileSys(QWidget *parent) :
 
     QDir dir(disks_path);
 
-    cout<<dir.dirName().toStdString()<<endl;
+    //cout<<dir.dirName().toStdString()<<endl;
     QFileInfoList list = dir.entryInfoList();
 
     for (int var = 0; var < list.size(); ++var) {
@@ -18,11 +18,11 @@ FileSys::FileSys(QWidget *parent) :
         {
             disks.push_back((list.at(var).fileName().split(format))[0]);
         }
-        cout<<list.at(var).fileName().toStdString()<<endl;
+        //cout<<list.at(var).fileName().toStdString()<<endl;
     }
-    cout<<"List of Disks:"<<endl;
+    //cout<<"List of Disks:"<<endl;
     for (int i = 0; i < disks.size(); ++i) {
-        cout<<disks[i].toStdString()<<endl;
+        //cout<<disks[i].toStdString()<<endl;
     }
 
     ui->listTerm->installEventFilter(this);
@@ -85,14 +85,14 @@ void FileSys::exCommand(QString command_line)
                             ui->listTerm->appendPlainText(fdisk_commands_empty);
                         }
                     }else if(fdisk_command == "D"){ // muestra informacion del disco
-                        cout<<"--> Information"<<endl;
+                        //cout<<"--> Information"<<endl;
                         showInfoDisk(name_disk);
                     }else if(fdisk_command == "d"){ // elimina un disco
-                        cout<<"--> Delete"<<endl;
+                        //cout<<"--> Delete"<<endl;
                         deleteDisk(name_disk);
                     }
                 }else if(fdisk_command == "L"){ // enlista todos los discos
-                    cout<<"--> Listar"<<endl;
+                    //cout<<"--> Listar"<<endl;
                     listDisks();
                 }else{
                     ui->listTerm->appendPlainText(fdisk_commands);
@@ -104,7 +104,7 @@ void FileSys::exCommand(QString command_line)
             if(commands.size()>0)
             {
                 // aqui va el codigo de montar un disco
-                cout<<"-> Montar Disco"<<endl;
+                //cout<<"-> Montar Disco"<<endl;
                 mountDisk(commands.at(0));
             }
         }else if(is_mounted_disk){ // comandos si hay un disco esta montado
@@ -155,7 +155,7 @@ void FileSys::exCommand(QString command_line)
         }
         ui->txtcommandLine->setText("");
     }else{
-        cout<<last_command_line.toStdString()<<endl;
+        //cout<<last_command_line.toStdString()<<endl;
         ui->txtcommandLine->setText(last_command_line);
     }
 }
@@ -182,35 +182,35 @@ void FileSys::mountDisk(QString disk_name)
 
             memcpy(&Super_Block,buffer,size_SB);
 
-            cout<<"Disk: "<<Super_Block.name<<endl;
-            cout<<"cant of blocks: "<<Super_Block.cantofblock<<endl;
-            cout<<"cant of inodes: "<<Super_Block.cantofinode<<endl;
-            cout<<"Free blocks: "<<Super_Block.freeblock<<endl;
-            cout<<"Free Scpace: "<<Super_Block.freespace<<endl;
-            cout<<"Size: "<<Super_Block.size<<endl;
-            cout<<"Size of Block: "<<Super_Block.sizeofblock<<endl;
+            //cout<<"Disk: "<<Super_Block.name<<endl;
+            //cout<<"cant of blocks: "<<Super_Block.cantofblock<<endl;
+            //cout<<"cant of inodes: "<<Super_Block.cantofinode<<endl;
+            //cout<<"Free blocks: "<<Super_Block.freeblock<<endl;
+            //cout<<"Free Scpace: "<<Super_Block.freespace<<endl;
+            //cout<<"Size: "<<Super_Block.size<<endl;
+            //cout<<"Size of Block: "<<Super_Block.sizeofblock<<endl;
 
-            cout<<"Pointer after read SB: "<<in.tellg()<<endl;
-            cout<<"Size SB: "<<size_SB<<endl;
+            //cout<<"Pointer after read SB: "<<in.tellg()<<endl;
+            //cout<<"Size SB: "<<size_SB<<endl;
 
             double total_size_fs = sizeof(SuperBlock) + sizeof(char)*(Super_Block.cantofblock/8) + sizeof(char)*(Super_Block.cantofinode/8)
                     + sizeof(Inode)*(Super_Block.cantofinode) + sizeof(FileData)*(Super_Block.cantofinode);
             start_datablocks = total_size_fs; //guardando el lugar donde comienza el DataBlock
-            cout<<"start_datablocks: "<<start_datablocks<<endl;
+            //cout<<"start_datablocks: "<<start_datablocks<<endl;
 
             //Leyendo bitmap
             bitmap = new char[Super_Block.cantofblock/8];
             start_bitmap = in.tellg(); //guardando el lugar donde comienza el bitmap
 
             in.read(bitmap,sizeof(char)*(Super_Block.cantofblock/8));
-            cout<<"is_in_use 0: "<<is_block_in_use(bitmap,0)<<endl;
+            //cout<<"is_in_use 0: "<<is_block_in_use(bitmap,0)<<endl;
 
             //leyendo bitmap_inodos
             bitmap_inodes = new char[Super_Block.cantofinode/8];
             start_bitmap_inodes = in.tellg(); //guardando el lugar donde comienza el bitmap_inodes
 
             in.read(bitmap_inodes,sizeof(char)*(Super_Block.cantofinode/8));
-            cout<<"is_in_use 0 inodes: "<<is_block_in_use(bitmap_inodes,0)<<endl;
+            //cout<<"is_in_use 0 inodes: "<<is_block_in_use(bitmap_inodes,0)<<endl;
 
             //leyendo FileTable
             int size_DataFile = sizeof(FileData);
@@ -233,10 +233,10 @@ void FileSys::mountDisk(QString disk_name)
 
 //            current_path.push_back(root_path);
 
-            cout<<"FD_root_name: "<<file_data_array[0]->name<<endl;
-            cout<<"FD_root_index_inode: "<<file_data_array[0]->index_file<<endl;
-            cout<<"FD_1: "<<file_data_array[1]->name<<endl;
-            cout<<"FD_1_index_inode: "<<file_data_array[1]->index_file<<endl;
+            //cout<<"FD_root_name: "<<file_data_array[0]->name<<endl;
+            //cout<<"FD_root_index_inode: "<<file_data_array[0]->index_file<<endl;
+            //cout<<"FD_1: "<<file_data_array[1]->name<<endl;
+            //cout<<"FD_1_index_inode: "<<file_data_array[1]->index_file<<endl;
 
         }else{
             ui->listTerm->appendPlainText("No se pudo montar el disco: " + disk_name + "!");
@@ -244,7 +244,7 @@ void FileSys::mountDisk(QString disk_name)
 
         in.close();
     }else{
-        cout<<"no existe el disco"<<endl;
+        //cout<<"no existe el disco"<<endl;
     }
 
     //probando cambiar el filetable
@@ -265,10 +265,10 @@ void FileSys::mountDisk(QString disk_name)
 void FileSys::listDisks()
 {
     QString title = "List of Disks:";
-    cout<<title.toStdString().c_str()<<endl;
+    //cout<<title.toStdString().c_str()<<endl;
     ui->listTerm->appendPlainText(title);
     for (int i = 0; i < disks.size(); ++i) {
-        cout<<disks[i].toStdString()<<endl;
+        //cout<<disks[i].toStdString()<<endl;
         ui->listTerm->appendPlainText("->" + disks[i]);
     }
 }
@@ -291,12 +291,12 @@ void FileSys::deleteDisk(QString disk_name)
         if(remove((disks_path + disk_name + format).toStdString().c_str())==0)
         {
             disks.erase(disks.begin()+index);
-            cout<<"removed file: "<<(disks_path + disk_name + format).toStdString().c_str()<<endl;
+            //cout<<"removed file: "<<(disks_path + disk_name + format).toStdString().c_str()<<endl;
         }else{
-            cout<<"no removed"<<endl;
+            //cout<<"no removed"<<endl;
         }
     }else{
-        cout<<"no existe el disco"<<endl;
+        //cout<<"no existe el disco"<<endl;
     }
 }
 
@@ -316,13 +316,13 @@ void FileSys::showInfoDisk(QString disk_name)
 
         memcpy(&SB,buffer,size_SB);
 
-        cout<<"Disk: "<<SB.name<<endl;
-        cout<<"cant of blocks: "<<SB.cantofblock<<endl;
-        cout<<"cant of inodes: "<<SB.cantofinode<<endl;
-        cout<<"Free blocks: "<<SB.freeblock<<endl;
-        cout<<"Free Scpace: "<<SB.freespace<<endl;
-        cout<<"Size: "<<SB.size<<endl;
-        cout<<"Size of Block: "<<SB.sizeofblock<<endl;
+        //cout<<"Disk: "<<SB.name<<endl;
+        //cout<<"cant of blocks: "<<SB.cantofblock<<endl;
+        //cout<<"cant of inodes: "<<SB.cantofinode<<endl;
+        //cout<<"Free blocks: "<<SB.freeblock<<endl;
+        //cout<<"Free Scpace: "<<SB.freespace<<endl;
+        //cout<<"Size: "<<SB.size<<endl;
+        //cout<<"Size of Block: "<<SB.sizeofblock<<endl;
 
         ui->listTerm->appendPlainText("Information Disk: " + QString(SB.name));
         ui->listTerm->appendPlainText("-> Size: " + QString::number(SB.size) + " bytes");
@@ -334,10 +334,11 @@ void FileSys::showInfoDisk(QString disk_name)
         ui->listTerm->appendPlainText("-> Free inodes: " + QString::number(SB.freeinode));
 
     }else{
-        cout<<"no existe el disco"<<endl;
+        //cout<<"no existe el disco"<<endl;
     }
 }
 
+//size: MB
 void FileSys::mkfile(string name, int size)
 {
     double size_bytes = size;//*pow(1024,2);
@@ -345,7 +346,7 @@ void FileSys::mkfile(string name, int size)
     vector<double> Total_blocks = getTotalBlocksToUse(size_bytes,Super_Block.sizeofblock);
     string T_name = (disks_path + mounted_disk + format).toStdString();
     int index = searchInFileTable(name);
-    cout<<"Free size disk antes: "<<Super_Block.freespace<<endl;
+    //cout<<"Free size disk antes: "<<Super_Block.freespace<<endl;
     int x = Super_Block.sizeofblock/8;
     double totalSizeInode = (10 + x + pow(x,2) + pow(x,3))*Super_Block.sizeofblock;
 
@@ -403,12 +404,12 @@ void FileSys::mkfile(string name, int size)
         updateSuperBlock();
 
         ui->listTerm->appendPlainText("Archivo creado!");
-        cout<<"Archivo creado!"<<endl;
-        cout<<"inodo usado: "<<inode<<endl;
-        cout<<"bloques usados: "<<Total_blocks[Total_blocks.size()-1]<<endl;
-        cout<<"Directos en: "<<endl;
+        //cout<<"Archivo creado!"<<endl;
+        //cout<<"inodo usado: "<<inode<<endl;
+        //cout<<"bloques usados: "<<Total_blocks[Total_blocks.size()-1]<<endl;
+        //cout<<"Directos en: "<<endl;
         for (int i = 0; i < 10; ++i) {
-            cout<<i<<"- "<<(new_inode.directos)[i]<<endl;
+            //cout<<i<<"- "<<(new_inode.directos)[i]<<endl;
         }
 
         //lee IS
@@ -419,29 +420,29 @@ void FileSys::mkfile(string name, int size)
 
         if(new_inode.indirectossimples!=-1)
         {
-            cout<<"Leido del Disco IS en!: "<<new_inode.indirectossimples<<endl;
+            //cout<<"Leido del Disco IS en!: "<<new_inode.indirectossimples<<endl;
             for (int i = 0; i < x; ++i) {
-                cout<<"data en- "<<buf[i]<<endl;
-    //            if(buf[i]==-1) cout<<"-nan = -1"<<endl;
+                //cout<<"data en- "<<buf[i]<<endl;
+    //            if(buf[i]==-1) //cout<<"-nan = -1"<<endl;
             }
         }
 
         //lee ID
         read(T_name,(char*)buf,new_inode.indirectosdobles*Super_Block.sizeofblock,Super_Block.sizeofblock);
     //    memcpy(&ino,buf,size_block);
-        cout<<"Leido del Disco ID en!: "<<new_inode.indirectosdobles<<endl;
+        //cout<<"Leido del Disco ID en!: "<<new_inode.indirectosdobles<<endl;
 
         if(new_inode.indirectosdobles!=-1)
         {
             for (int i = 0; i < x; ++i) {
-                cout<<"IS en- "<<buf[i]<<endl;
+                //cout<<"IS en- "<<buf[i]<<endl;
                 double *buf2 = new double[x];
                 read(T_name,(char*)buf2,buf[i]*Super_Block.sizeofblock,Super_Block.sizeofblock);
-        //        cout<<"IS del ID"<<endl;
+        //        //cout<<"IS del ID"<<endl;
                 if(buf[i]!=-1)
                 {
                     for (int j = 0; j < x; ++j) {
-                        cout<<"data en:- "<<buf2[j]<<endl;
+                        //cout<<"data en:- "<<buf2[j]<<endl;
                     }
                 }
             }
@@ -450,25 +451,25 @@ void FileSys::mkfile(string name, int size)
         //lee IT
         read(T_name,(char*)buf,new_inode.indirectostriples*Super_Block.sizeofblock,Super_Block.sizeofblock);
     //    memcpy(&ino,buf,size_block);
-        cout<<"Leido del Disco IT en!: "<<new_inode.indirectostriples<<endl;
+        //cout<<"Leido del Disco IT en!: "<<new_inode.indirectostriples<<endl;
         if(new_inode.indirectostriples!=-1)
         {
             for (int i = 0; i < x; ++i) {
-                cout<<"ID en- "<<buf[i]<<endl;
+                //cout<<"ID en- "<<buf[i]<<endl;
                 double *buf2 = new double[x];
                 read(T_name,(char*)buf2,buf[i]*Super_Block.sizeofblock,Super_Block.sizeofblock);
-        //        cout<<"ID del IT"<<endl;
+        //        //cout<<"ID del IT"<<endl;
                 if(buf[i]!=-1)
                 {
                     for (int j = 0; j < x; ++j) {
-                        cout<<"IS en- "<<buf2[j]<<endl;
+                        //cout<<"IS en- "<<buf2[j]<<endl;
                         double *buf3 = new double[x];
                         read(T_name,(char*)buf3,buf2[j]*Super_Block.sizeofblock,Super_Block.sizeofblock);
-            //            cout<<"IS del ID del IT"<<endl;
+            //            //cout<<"IS del ID del IT"<<endl;
                         if(buf2[j]!=-1)
                         {
                             for (int k = 0; k < x; ++k) {
-                                cout<<"data en- "<<buf3[k]<<endl;
+                                //cout<<"data en- "<<buf3[k]<<endl;
                             }
                         }
                     }
@@ -477,13 +478,13 @@ void FileSys::mkfile(string name, int size)
         }
     }
 //    else{
-//        cout<<"Ya existe el nombre"<<endl;
+//        //cout<<"Ya existe el nombre"<<endl;
 //        double inode = file_data_array[index]->index_file;
 //        char *buffer = new char[sizeof(Inode)];
 //        Inode new_inode;
 //        read(T_name, buffer,start_inodes + inode*sizeof(Inode),sizeof(Inode));
 //        memcpy(&new_inode,buffer,sizeof(Inode));
-//        cout<<"lastDataBlock: "<<new_inode.lastDataBlock<<endl;
+//        //cout<<"lastDataBlock: "<<new_inode.lastDataBlock<<endl;
 
 //        double size_bytes_temp = size_bytes;
 //        double size_to_write = Super_Block.sizeofblock;
@@ -499,18 +500,18 @@ void FileSys::mkfile(string name, int size)
 //        }
 //        //escribiendo inodo en el disco
 //        write(T_name,(char*)&new_inode,start_inodes + inode*sizeof(Inode),sizeof(Inode));
-//        cout<<"termino de escribir!"<<endl;
+//        //cout<<"termino de escribir!"<<endl;
 
 //        //escribimos el superblock
 //        updateSuperBlock();
 //    }
-    cout<<"Free size disk: "<<Super_Block.freespace<<endl;
+    //cout<<"Free size disk: "<<Super_Block.freespace<<endl;
 }
 
 void FileSys::mkDir(string name)
 {
     //falta validar que quepa otro archivo en el 'dir' actual
-    cout<<"Free size disk antes: "<<Super_Block.freespace<<endl;
+    //cout<<"Free size disk antes: "<<Super_Block.freespace<<endl;
 
     int x = Super_Block.sizeofblock/8;
     double totalSizeInode = (10 + x + pow(x,2) + pow(x,3))*Super_Block.sizeofblock;
@@ -569,7 +570,7 @@ void FileSys::mkDir(string name)
         ui->listTerm->appendPlainText(QString(("El dir: " + name + " ya existe!").c_str()));
     }
 
-    cout<<"Free size disk: "<<Super_Block.freespace<<endl;
+    //cout<<"Free size disk: "<<Super_Block.freespace<<endl;
 }
 
 void FileSys::mkfile2(string name, int size)
@@ -589,9 +590,9 @@ void FileSys::mkfile2(string name, int size)
         vector<double> blocks = getFreeBlocks(bitmap,Super_Block.cantofblock,Total_blocks[Total_blocks.size()-1]);
         vector<double> inode = getFreeBlocks(bitmap_inodes,Super_Block.cantofinode,1);
 
-        cout<<"Bloques dados por el bitmap!"<<endl;
+        //cout<<"Bloques dados por el bitmap!"<<endl;
         for (double i = 0; i < Total_blocks[Total_blocks.size()-1]; ++i) {
-            cout<<"-- "<<blocks[i]<<endl;
+            //cout<<"-- "<<blocks[i]<<endl;
         }
 
         if(blocks[0]>0) // valida que hallan la cantidad de bloques suficientes, para que quepa en el disco
@@ -636,7 +637,7 @@ void FileSys::mkfile2(string name, int size)
 
             double Total_blocks_inodes = Total_blocks[Total_blocks.size()-1] - bloques_data;
 
-            cout<<"caso: "<<Total_blocks[0]<<endl;
+            //cout<<"caso: "<<Total_blocks[0]<<endl;
             if(Total_blocks[0]==0)
             {
                 for (int i = 0; i < Total_blocks[1]; ++i) {
@@ -676,12 +677,12 @@ void FileSys::mkfile2(string name, int size)
             write(T_name,(char*)&Super_Block,0,sizeof(SuperBlock));
 
             ui->listTerm->appendPlainText("Archivo creado!");
-            cout<<"Archivo creado!"<<endl;
-            cout<<"inodo usado: "<<inode[0]<<endl;
-            cout<<"bloques usados: "<<Total_blocks[Total_blocks.size()-1]<<endl;
-            cout<<"Directos en: "<<endl;
+            //cout<<"Archivo creado!"<<endl;
+            //cout<<"inodo usado: "<<inode[0]<<endl;
+            //cout<<"bloques usados: "<<Total_blocks[Total_blocks.size()-1]<<endl;
+            //cout<<"Directos en: "<<endl;
             for (int i = 0; i < 10; ++i) {
-                cout<<i<<"- "<<(new_inode.directos)[i]<<endl;
+                //cout<<i<<"- "<<(new_inode.directos)[i]<<endl;
             }
         }else{
             ui->listTerm->appendPlainText("No hay espacio sificiente en el disco!");
@@ -732,9 +733,9 @@ void FileSys::ls()
             readDataBlocksFrom(T_name,all_datablocks,&current_inode,Super_Block.sizeofblock);
 
             vector<FileData*> filetable = getFileTableFrom(current_inode,all_datablocks);
-            cout<<"current path: "<<current_path.join("/").toStdString().c_str()<<endl;
+            //cout<<"current path: "<<current_path.join("/").toStdString().c_str()<<endl;
             for (int i = 0; i < filetable.size(); ++i) {
-                cout<<"Nombre: "<<filetable[i]->name<<" index: "<<filetable[i]->index_file<<endl;
+                //cout<<"Nombre: "<<filetable[i]->name<<" index: "<<filetable[i]->index_file<<endl;
                 if(strcmp(filetable[i]->name,"..")!=0)
                 {
                     char *buffer = new char[sizeof(Inode)];
@@ -742,7 +743,7 @@ void FileSys::ls()
                     read(T_name,buffer,start_inodes + (filetable[i]->index_file)*sizeof(Inode),sizeof(Inode));
                     memcpy(inode,buffer,sizeof(Inode));
                     string file = string(inode->permisos) + "\troot\troot\t" + QString::number(inode->filesize).toStdString() + "\t" + string(filetable[i]->name);
-                    cout<<file.c_str()<<endl;
+                    //cout<<file.c_str()<<endl;
                     ui->listTerm->appendPlainText(QString(file.c_str()));
                 }
             }
@@ -793,7 +794,7 @@ void FileSys::Export(string file_name)
     string exportTo = dirToExport.toStdString() + file_name;
     double index_inode = searchInodeInFileTable(file_name);
     if(index_inode!=-1){
-        cout<<"Exportando..."<<endl;
+        //cout<<"Exportando..."<<endl;
         Inode inode;
         char buff[sizeof(Inode)];
         read(T_name,(char*)&buff,start_inodes + index_inode*sizeof(Inode),sizeof(Inode));
@@ -817,7 +818,7 @@ void FileSys::cp(string file, string new_name, QString path)
 
             char buff[sizeof(Inode)];
             Inode dir_to;
-            cout<<"DIR to COPY: "<<dir.toStdString().c_str()<<endl;
+            //cout<<"DIR to COPY: "<<dir.toStdString().c_str()<<endl;
             read(T_name,(char*)&buff,start_inodes + (file_data_array[index]->index_file)*sizeof(Inode),sizeof(Inode));
             memcpy(&dir_to,buff,sizeof(Inode));
 
@@ -841,7 +842,7 @@ void FileSys::cp(string file, string new_name, QString path)
 
             if(found)
             {
-                cout<<"encontrado: "<<file.c_str()<<endl;
+                //cout<<"encontrado: "<<file.c_str()<<endl;
                 if(from.permisos[0]=='-')
                 {
                     strcpy(to.permisos,from.permisos);
@@ -859,7 +860,7 @@ void FileSys::cp(string file, string new_name, QString path)
 
                             char buffer[(int)size_to_write];
                             read(T_name,(char*)buffer,blocks[i]*(Super_Block.sizeofblock),size_to_write);
-                            cout<<"DATA leida: "<<buffer<<endl;
+                            //cout<<"DATA leida: "<<buffer<<endl;
                             writeInode(&to,T_name,(char*)buffer,size_to_write);
                         }
                         //escribimos el inodo
@@ -924,9 +925,9 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 //                strcpy(buf_temp,buffer);
 ////                buffer = new char[Super_Block.sizeofblock];
 //                memset(buffer,0,Super_Block.sizeofblock);
-                cout<<"buffer antes: "<<buffer<<endl;
-                cout<<"free of blocks: "<<free_of_block<<endl;
-                cout<<"size: "<<size<<endl;
+                //cout<<"buffer antes: "<<buffer<<endl;
+                //cout<<"free of blocks: "<<free_of_block<<endl;
+                //cout<<"size: "<<size<<endl;
 //                for (int i = (block_used_percent*Super_Block.sizeofblock),j=0; i < size; ++i, j++) {
 //                    buffer[j] = buf_temp[i];
 //                }
@@ -940,7 +941,7 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 //                string buf = buf_temp.substr(free_of_block,size);
 //                buffer = const_cast<char *>(buf.c_str());
                 buffer[0] = 'Y';
-                cout<<"bytes copiados: "<<buffer<<endl;
+                //cout<<"bytes copiados: "<<buffer<<endl;
             }
         }
 
@@ -1101,63 +1102,71 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 
 void FileSys::addFile(string filename)
 {
-    ifstream in(filename.c_str(),ios::in | ios::binary);
+    if(is_mounted_disk){
+        ifstream in(filename.c_str(),ios::in | ios::binary);
 
-    if(in.is_open())
-    {
-        in.seekg(0,ios::end);
-        double filesize = in.tellg();
-        double dataBlocks = filesize/Super_Block.sizeofblock;
-        double size_to_write = Super_Block.sizeofblock;
-        in.seekg(0,ios::beg);
-
-        cout<<"FileSize addFile: "<<filesize<<endl;
-
-        if((getTotalSizeUsed(filesize,dataBlocks,Super_Block.sizeofblock) + sizeof(FileData)) <= Super_Block.freespace)
+        if(in.is_open())
         {
-            string name = QString(filename.c_str()).split("/").last().toStdString();
-            double index = searchInFileTable(name);
+            in.seekg(0,ios::end);
+            double filesize = in.tellg();
+            double dataBlocks = ceil(filesize/Super_Block.sizeofblock);
+            double size_to_write = Super_Block.sizeofblock;
+            in.seekg(0,ios::beg);
 
-            if(index==-1)
+            //cout<<"FileSize addFile: "<<filesize<<endl;
+
+            if((getTotalSizeUsed(filesize,dataBlocks,Super_Block.sizeofblock) + sizeof(FileData)) <= Super_Block.freespace)
             {
-                index = get_NextFree_FileTable();
-                double inode = getNextFreeBlock(bitmap_inodes,Super_Block.cantofinode);
-                Super_Block.cantofinode--;
+                string name = QString(filename.c_str()).split("/").last().toStdString();
+                double index = searchInFileTable(name);
 
-                //escribiendo en el filetable general
-                strcpy(file_data_array[index]->name,name.c_str());
-                file_data_array[index]->index_file = inode;
-                write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
+                if(index==-1)
+                {
+                    index = get_NextFree_FileTable();
+                    double inode = getNextFreeBlock(bitmap_inodes,Super_Block.cantofinode);
+                    Super_Block.cantofinode--;
 
-                Inode new_inode;
-                initInode(&new_inode);
-                strcpy(new_inode.permisos,"-rwxrwxrwx");
+                    //escribiendo en el filetable general
+                    strcpy(file_data_array[index]->name,name.c_str());
+                    file_data_array[index]->index_file = inode;
+                    write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
 
-                for (int i = 0; i < dataBlocks; ++i) {
-                    if(filesize<size_to_write)
-                        size_to_write=filesize;
-                    filesize-=size_to_write;
+                    Inode new_inode;
+                    initInode(&new_inode);
+                    strcpy(new_inode.permisos,"-rwxrwxrwx");
 
-                    char buff[(int)size_to_write];
-                    in.read((char*)&buff,size_to_write);
-                    writeInode(&new_inode,T_name,(char*)&buff,size_to_write);
+                    for (int i = 0; i < dataBlocks; ++i) {
+                        if(filesize<size_to_write)
+                            size_to_write=filesize;
+                        filesize-=size_to_write;
+
+                        char buff[(int)size_to_write];
+                        in.read((char*)&buff,size_to_write);
+                        writeInode(&new_inode,T_name,(char*)&buff,size_to_write);
+                    }
+                    //escribiendo el inodo
+                    write(T_name,(char*)&new_inode,start_inodes + inode*sizeof(Inode),sizeof(Inode));
+
+                    //actualizando filetable del dir actual
+                    updateFileTableFromDir(&current_inode,file_data_array[index]);
+
+                    //escribiendo el FT
+                    //                write(T_name,(char*)&file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
+
+                    //escribiendo el actual
+                    write(T_name,(char*)&current_inode,start_inodes + current_inode_ptr*sizeof(Inode),sizeof(Inode));
+
+                    //guardar bitmaps
+                    write(T_name,bitmap,start_bitmap,Super_Block.cantofblock/8);
+                    write(T_name,bitmap_inodes,start_bitmap_inodes,Super_Block.cantofinode/8);
+
+                    updateSuperBlock();
                 }
-                //escribiendo el inodo
-                write(T_name,(char*)&new_inode,start_inodes + inode*sizeof(Inode),sizeof(Inode));
-
-                //actualizando filetable del dir actual
-                updateFileTableFromDir(&current_inode,file_data_array[index]);
-
-                //guardar bitmaps
-                write(T_name,bitmap,start_bitmap,Super_Block.cantofblock/8);
-                write(T_name,bitmap_inodes,start_bitmap_inodes,Super_Block.cantofinode/8);
-
-                updateSuperBlock();
             }
         }
-    }
 
-    in.close();
+        in.close();
+    }
 }
 
 void FileSys::rm(string filename)
@@ -1168,7 +1177,7 @@ void FileSys::rm(string filename)
 
         if(indexFileTableGlobal>=0)
         {
-            cout<<"Eliminando "<<filename.c_str()<<endl;
+            //cout<<"Eliminando "<<filename.c_str()<<endl;
             char *all_datablocks;
             readDataBlocksFrom(T_name,all_datablocks,&current_inode,Super_Block.sizeofblock);
 
@@ -1183,7 +1192,7 @@ void FileSys::rm(string filename)
                     read(T_name,(char*)&buff,start_inodes + (filetable[i]->index_file)*sizeof(Inode),sizeof(Inode));
                     memcpy(&toDelete,&buff,sizeof(Inode));
                     indexFileInFileTable = i;
-                    cout<<"indexFileInFileTable: "<<indexFileInFileTable<<endl;
+                    //cout<<"indexFileInFileTable: "<<indexFileInFileTable<<endl;
                     break;
                 }
             }
@@ -1193,7 +1202,7 @@ void FileSys::rm(string filename)
                 if(toDelete.permisos[0]=='-')
                 {
                     double inode_index = filetable[indexFileInFileTable]->index_file;
-                    cout<<"inode_index: "<<inode_index<<endl;
+                    //cout<<"inode_index: "<<inode_index<<endl;
                     filetable.erase(filetable.begin() + indexFileInFileTable);
                     strcpy(file_data_array[(int)indexFileTableGlobal]->name,"");
                     file_data_array[(int)indexFileTableGlobal]->index_file = -1;
@@ -1268,7 +1277,7 @@ void FileSys::on_btnAddFile_clicked()
     {
         QFileDialog *input = new QFileDialog();
         string filePath = input->getOpenFileName().toStdString();
-        cout<<filePath.c_str()<<endl;
+        //cout<<filePath.c_str()<<endl;
         addFile(filePath);
     }else{
         ui->listTerm->appendPlainText("No hay disco montado.");
@@ -1277,31 +1286,22 @@ void FileSys::on_btnAddFile_clicked()
 
 void FileSys::on_btnBlocks_clicked()
 {
-    BlocksBox *blocks = new BlocksBox(NULL,Super_Block.cantofblock,Super_Block.FS_Blocks);
-    blocks->show();
+    if(is_mounted_disk){
+        delete blocks;
+        blocks = new BlocksBox(NULL,&file_data_array,Super_Block.cantofblock,Super_Block.FS_Blocks,Super_Block.sizeofblock,start_inodes,T_name);
+        blocks->show();
+    }else{
+        ui->listTerm->appendPlainText("No hay disco montado.");
+    }
+}
 
-    while(true)
-    {
-        if(blocks->ready())
-        {
-            for (int i = 0; i < file_data_array.size(); ++i) {
-                if(file_data_array[i]->index_file!=-1){
-                    blocks->newColor();
-                    char buf[sizeof(Inode)];
-                    Inode inode;
-                    initInode(&inode);
-
-                    read(T_name,(char*)&buf,start_inodes + file_data_array[i]->index_file*sizeof(Inode),sizeof(Inode));
-                    memcpy(&inode,buf,sizeof(Inode));
-
-                    vector<double> AllBlocks = getAllBlocksUsedFor(T_name,&inode,Super_Block.sizeofblock);
-
-                    for (int j = 0; j < AllBlocks.size(); ++j) {
-                        blocks->setColorTo(AllBlocks[j]);
-                    }
-                }
-            }
-            break;
-        }
+void FileSys::on_btnTrees_clicked()
+{
+    if(is_mounted_disk){
+        delete tree;
+        tree = new Tree(NULL,T_name,start_inodes,0,Super_Block.sizeofblock);
+        tree->show();
+    }else{
+        ui->listTerm->appendPlainText("No hay disco montado.");
     }
 }
