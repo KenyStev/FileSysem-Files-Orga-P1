@@ -1150,9 +1150,6 @@ void FileSys::addFile(string filename)
                     //actualizando filetable del dir actual
                     updateFileTableFromDir(&current_inode,file_data_array[index]);
 
-                    //escribiendo el FT
-                    //                write(T_name,(char*)&file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
-
                     //escribiendo el actual
                     write(T_name,(char*)&current_inode,start_inodes + current_inode_ptr*sizeof(Inode),sizeof(Inode));
 
