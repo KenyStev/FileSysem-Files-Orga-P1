@@ -81,7 +81,7 @@ void BlocksBox::newColor()
 {
     while(true){
         r = rand()%256;
-        g = rand()%256;
+        g = rand()%10;
         b = rand()%256;
         QString color = QString::number(r) + " " + QString::number(g) + " " + QString::number(b);
         if(!usedColors.contains(color))
