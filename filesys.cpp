@@ -127,6 +127,7 @@ void FileSys::exCommand(QString command_line)
             {
                 if(commands.size() == 2 )
                 {
+//                    QtConcurrent::run(this,&FileSys::mkfile,commands.at(0).toStdString(),commands.at(1).toInt());
                     mkfile(commands.at(0).toStdString(),commands.at(1).toInt());
                 }
             }else if(main_command == "mkfile2") // crear file form: mkfile [name_file] [tamanio mb]
@@ -176,11 +177,11 @@ void FileSys::mountDisk(QString disk_name)
 //            SuperBlock *SB = new SuperBlock();
 
             int size_SB = sizeof(SuperBlock);
-            char *buffer = new char[size_SB];
+            char buffer[size_SB];
 
-            in.read(buffer,size_SB);
+            in.read((char*)&buffer,size_SB);
 
-            memcpy(&Super_Block,buffer,size_SB);
+            memcpy(&Super_Block,&buffer,size_SB);
 
             //cout<<"Disk: "<<Super_Block.name<<endl;
             //cout<<"cant of blocks: "<<Super_Block.cantofblock<<endl;
@@ -214,7 +215,7 @@ void FileSys::mountDisk(QString disk_name)
 
             //leyendo FileTable
             int size_DataFile = sizeof(FileData);
-            buffer = new char[size_DataFile];
+            buffer[size_DataFile];
             start_filetable = in.tellg(); //guardando el lugar donde comienza el FileTable
 
             for (int i = 0; i < Super_Block.cantofinode; ++i) {
@@ -227,9 +228,9 @@ void FileSys::mountDisk(QString disk_name)
             start_inodes = in.tellg(); //guardando el lugar donde comienzan los inodos
 
             //montando el inodo root
-            char *root_buffer = new char[sizeof(Inode)];
-            in.read(root_buffer,sizeof(Inode));
-            memcpy(&current_inode,root_buffer,sizeof(Inode));
+            char root_buffer[sizeof(Inode)];
+            in.read((char*)&root_buffer,sizeof(Inode));
+            memcpy(&current_inode,&root_buffer,sizeof(Inode));
 
 //            current_path.push_back(root_path);
 
@@ -309,12 +310,12 @@ void FileSys::showInfoDisk(QString disk_name)
         SuperBlock SB;
 
         int size_SB = sizeof(SuperBlock);
-        char *buffer = new char[size_SB];
+        char buffer[size_SB];
 
-        in.read(buffer,size_SB);
+        in.read((char*)&buffer,size_SB);
         in.close();
 
-        memcpy(&SB,buffer,size_SB);
+        memcpy(&SB,&buffer,size_SB);
 
         //cout<<"Disk: "<<SB.name<<endl;
         //cout<<"cant of blocks: "<<SB.cantofblock<<endl;
@@ -362,9 +363,9 @@ void FileSys::mkfile(string name, int size)
         file_data_array[index]->index_file = inode;
 
         Inode new_inode;
-        char *buffer = new char[sizeof(Inode)];
-        read(T_name, buffer,start_inodes + inode*sizeof(Inode),sizeof(Inode));
-        memcpy(&new_inode,buffer,sizeof(Inode));
+        char buffer[sizeof(Inode)];
+        read(T_name, (char*)&buffer,start_inodes + inode*sizeof(Inode),sizeof(Inode));
+        memcpy(&new_inode,&buffer,sizeof(Inode));
         strcpy(new_inode.permisos,"-rwxrwxrwx");
 
         //escribiendo filedata en el disco
@@ -379,15 +380,18 @@ void FileSys::mkfile(string name, int size)
 
         double size_bytes_temp = size_bytes;
         double size_to_write = Super_Block.sizeofblock;
+        char buffer_data[Super_Block.sizeofblock];
+        double percent=0;
         for (int i = 0; i < bloques_data; ++i) {
-            char *buffer = new char[Super_Block.sizeofblock];
             for (int i = 0; i < Super_Block.sizeofblock; ++i) {
-                buffer[i] = 'K';//rand()%25 + 65;
+                buffer_data[i] = 'K';//rand()%25 + 65;
             }
             if(size_bytes_temp<size_to_write)
                 size_to_write = size_bytes_temp;
             size_bytes_temp-=size_to_write;
-            writeInode(&new_inode,T_name,buffer,size_to_write);
+            writeInode(&new_inode,T_name,(char*)&buffer_data,size_to_write);
+            percent+=size_to_write;
+//            ui->listTerm->appendPlainText(QString::number((percent/size)*100) + "%");
         }
         //escribiendo inodo en el disco
         write(T_name,(char*)&new_inode,start_inodes + inode*sizeof(Inode),sizeof(Inode));
@@ -414,8 +418,8 @@ void FileSys::mkfile(string name, int size)
 
         //lee IS
         int x = Super_Block.sizeofblock/8;
-        double *buf = new double[x];
-        read(T_name,(char*)buf,new_inode.indirectossimples*Super_Block.sizeofblock,Super_Block.sizeofblock);
+        double buf[x];
+        read(T_name,(char*)&buf,new_inode.indirectossimples*Super_Block.sizeofblock,Super_Block.sizeofblock);
     //    memcpy(&ino,buf,size_block);
 
         if(new_inode.indirectossimples!=-1)
@@ -428,7 +432,7 @@ void FileSys::mkfile(string name, int size)
         }
 
         //lee ID
-        read(T_name,(char*)buf,new_inode.indirectosdobles*Super_Block.sizeofblock,Super_Block.sizeofblock);
+        read(T_name,(char*)&buf,new_inode.indirectosdobles*Super_Block.sizeofblock,Super_Block.sizeofblock);
     //    memcpy(&ino,buf,size_block);
         //cout<<"Leido del Disco ID en!: "<<new_inode.indirectosdobles<<endl;
 
@@ -436,8 +440,8 @@ void FileSys::mkfile(string name, int size)
         {
             for (int i = 0; i < x; ++i) {
                 //cout<<"IS en- "<<buf[i]<<endl;
-                double *buf2 = new double[x];
-                read(T_name,(char*)buf2,buf[i]*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                double buf2[x];
+                read(T_name,(char*)&buf2,buf[i]*Super_Block.sizeofblock,Super_Block.sizeofblock);
         //        //cout<<"IS del ID"<<endl;
                 if(buf[i]!=-1)
                 {
@@ -449,22 +453,22 @@ void FileSys::mkfile(string name, int size)
         }
 
         //lee IT
-        read(T_name,(char*)buf,new_inode.indirectostriples*Super_Block.sizeofblock,Super_Block.sizeofblock);
+        read(T_name,(char*)&buf,new_inode.indirectostriples*Super_Block.sizeofblock,Super_Block.sizeofblock);
     //    memcpy(&ino,buf,size_block);
         //cout<<"Leido del Disco IT en!: "<<new_inode.indirectostriples<<endl;
         if(new_inode.indirectostriples!=-1)
         {
             for (int i = 0; i < x; ++i) {
                 //cout<<"ID en- "<<buf[i]<<endl;
-                double *buf2 = new double[x];
-                read(T_name,(char*)buf2,buf[i]*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                double buf2[x];
+                read(T_name,(char*)&buf2,buf[i]*Super_Block.sizeofblock,Super_Block.sizeofblock);
         //        //cout<<"ID del IT"<<endl;
                 if(buf[i]!=-1)
                 {
                     for (int j = 0; j < x; ++j) {
                         //cout<<"IS en- "<<buf2[j]<<endl;
-                        double *buf3 = new double[x];
-                        read(T_name,(char*)buf3,buf2[j]*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                        double buf3[x];
+                        read(T_name,(char*)&buf3,buf2[j]*Super_Block.sizeofblock,Super_Block.sizeofblock);
             //            //cout<<"IS del ID del IT"<<endl;
                         if(buf2[j]!=-1)
                         {
@@ -476,6 +480,7 @@ void FileSys::mkfile(string name, int size)
                 }
             }
         }
+        delete progressBar;
     }
 //    else{
 //        //cout<<"Ya existe el nombre"<<endl;
@@ -713,6 +718,7 @@ void FileSys::updateFileTableFromDir(Inode *inode, FileData *data)
         iterate+=size_to_write;
         writeInode(inode,T_name,buffer,size_to_write);
     }
+    delete buffer;
 
 }
 
@@ -738,15 +744,18 @@ void FileSys::ls()
                 //cout<<"Nombre: "<<filetable[i]->name<<" index: "<<filetable[i]->index_file<<endl;
                 if(strcmp(filetable[i]->name,"..")!=0)
                 {
-                    char *buffer = new char[sizeof(Inode)];
-                    Inode *inode = new Inode();
+                    char buffer[sizeof(Inode)];
+                    Inode inode;// = new Inode();
+                    initInode(&inode);
                     read(T_name,buffer,start_inodes + (filetable[i]->index_file)*sizeof(Inode),sizeof(Inode));
-                    memcpy(inode,buffer,sizeof(Inode));
-                    string file = string(inode->permisos) + "\troot\troot\t" + QString::number(inode->filesize).toStdString() + "\t" + string(filetable[i]->name);
+                    memcpy(&inode,buffer,sizeof(Inode));
+                    string file = string(inode.permisos) + "\troot\troot\t" + QString::number(inode.filesize).toStdString() + "\t" + string(filetable[i]->name);
                     //cout<<file.c_str()<<endl;
                     ui->listTerm->appendPlainText(QString(file.c_str()));
                 }
             }
+            delete all_datablocks;
+            filetable.clear();
         }
     }
 }
@@ -765,12 +774,12 @@ void FileSys::cd(string dir_to_move)
         for (int i = 0; i < filetable.size(); ++i) {
             if(strcmp(filetable[i]->name,dir_to_move.c_str())==0)
             {
-                char *buffer = new char[sizeof(Inode)];
+                char buffer[sizeof(Inode)];
                 Inode inode;// = new Inode();
-                read(T_name,buffer,start_inodes + (filetable[i]->index_file)*sizeof(Inode),sizeof(Inode));
-                memcpy(&inode,buffer,sizeof(Inode));
+                read(T_name,(char*)&buffer,start_inodes + (filetable[i]->index_file)*sizeof(Inode),sizeof(Inode));
+                memcpy(&inode,(char*)&buffer,sizeof(Inode));
                 if((inode.permisos)[0]=='d'){
-                    memcpy(&current_inode,buffer,sizeof(Inode));
+                    memcpy(&current_inode,(char*)&buffer,sizeof(Inode));
                     current_inode_ptr = filetable[i]->index_file;
                     if(dir_to_move=="..")
                     {
@@ -958,7 +967,7 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                 write(disk,buffer,block*Super_Block.sizeofblock,size);   //escribimos el bloque de data
             }else if(inode->blockuse < (10 + x)){   //CASE 1: si bloques de data usados es menor I_SIMPLES mas los anteriores
                 double IS_ptr = inode->indirectossimples;
-                double *IS = new double[x];         //bloque de IS con las direcciones a los bloques de data
+                double IS[x];         //bloque de IS con las direcciones a los bloques de data
                 if(IS_ptr==-1)                      //si aun no hemos utilizado los I_SIMPLES
                 {
                     IS_ptr = getNextFreeBlock(bitmap,Super_Block.cantofblock); //le pedimos un bloque al bitmap para el IS
@@ -970,7 +979,7 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                         IS[i] = -1;
                     }
                 }else{ //si ya habiamos utilizado antes el IS solo leemos lo que ya tenia
-                    read(disk,(char*)IS,IS_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                    read(disk,(char*)&IS,IS_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
                 }
 
                 double block = getNextFreeBlock(bitmap,Super_Block.cantofblock); //bloque para la data
@@ -982,11 +991,11 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 
                 //escribimos el bloque de data y el bloque de IS como corresponda
                 write(disk,buffer,block*Super_Block.sizeofblock,size);
-                write(disk,(char*)IS,IS_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                write(disk,(char*)&IS,IS_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
             }else if(inode->blockuse < (10 + x + pow(x,2))){ //CASE 2: si bloques de data usados es menor I_DOBLES mas los anteriores
                 double ID_ptr = inode->indirectosdobles;
-                double *ID = new double[x];
-                double *ID_IS = new double[x];
+                double ID[x];
+                double ID_IS[x];
                 if (ID_ptr==-1) { //si no hemos usado I_DOBLES antes
                     ID_ptr = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pedimos un bloque para los ID
                     Super_Block.freespace -= Super_Block.sizeofblock;
@@ -996,7 +1005,7 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                         ID[i] = -1;
                     }
                 }else{ //si ya lo habiamos usado solo lo leemos
-                    read(disk,(char*)ID,ID_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                    read(disk,(char*)&ID,ID_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
                 }
                 double b_data_ID = inode->blockuse++ - 10 - x;  //cuantos bloques de DATA tiene el ID?
                 double IS_to_write = b_data_ID/x;               //cuantos IS esta usando para tenerlos?
@@ -1011,10 +1020,10 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                         ID_IS[i] = -1;
                     }
                     //escribe el ID en el disco
-                    write(disk,(char*)ID,inode->indirectosdobles*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                    write(disk,(char*)&ID,inode->indirectosdobles*Super_Block.sizeofblock,Super_Block.sizeofblock);
                 }else{ //sino, entonces hay espacio aun en el ultimo IS que esta usando el ID
                     IS_to_write = floor(IS_to_write); //lo redondeamos para abajo para obtener el index de ese IS en el ID
-                    read(disk,(char*)ID_IS,ID[(int)IS_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock); //lemos el IS
+                    read(disk,(char*)&ID_IS,ID[(int)IS_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock); //lemos el IS
                 }
                 int indexInIS = b_data_ID - x*IS_to_write; //sacamos el index siguiente libre en el IS
 
@@ -1026,13 +1035,13 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 
                 //escribimos el bloque de data y el bloque del IS que pertenece al ID en el disco como corresponde
                 write(disk,buffer,block*Super_Block.sizeofblock,size);
-                write(disk,(char*)ID_IS,ID[(int)IS_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                write(disk,(char*)&ID_IS,ID[(int)IS_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock);
             }else if(inode->blockuse < (10 + x + pow(x,2) + pow(x,3))) //CASE 3: si bloques de data usados es menor I_TRIPLES mas los anteriores
             {
                 double IT_ptr = inode->indirectostriples;
-                double *IT = new double[x];
-                double *IT_ID = new double[x];
-                double *IT_ID_IS = new double[x];
+                double IT[x];
+                double IT_ID[x];
+                double IT_ID_IS[x];
                 if(IT_ptr == -1) //si no hemos usado IT antes
                 {
                     IT_ptr = getNextFreeBlock(bitmap,Super_Block.cantofblock); //pedimos bloque para IT
@@ -1043,7 +1052,7 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                         IT[i] = -1;
                     }
                 }else{ //si ya lo habiamos usado solo lo leemos
-                    read(disk,(char*)IT,IT_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                    read(disk,(char*)&IT,IT_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
                 }
                 double b_data_IT = inode->blockuse++ - 10 - x - pow(x,2); //cuantos bloques de DATA tiene el IT?
                 double ID_to_write = b_data_IT/pow(x,2);                  //cuantos ID esta usando el IT?
@@ -1057,10 +1066,10 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                     for (int i = 0; i < x; ++i) { //lo inicializa
                         IT_ID[i] = -1;
                     }
-                    write(disk,(char*)IT,IT_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                    write(disk,(char*)&IT,IT_ptr*Super_Block.sizeofblock,Super_Block.sizeofblock);
                 }else{ //sino, entonces hay espacio aun en el ultimo ID que esta usando el IT
                     ID_to_write = floor(ID_to_write); //lo redondeamos hacia abajo para obtener el index en el IT
-                    read(disk,(char*)IT_ID,IT[(int)ID_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock); //lo leemos
+                    read(disk,(char*)&IT_ID,IT[(int)ID_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock); //lo leemos
                 }
 
                 double IS_to_write = b_data_IT/x;                         //cuantos IS esta usando el IT?
@@ -1075,11 +1084,11 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
                     for (int i = 0; i < x; ++i) { //lo inicializa
                         IT_ID_IS[i] = -1;
                     }
-                    write(disk,(char*)IT_ID,IT[(int)ID_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                    write(disk,(char*)&IT_ID,IT[(int)ID_to_write]*Super_Block.sizeofblock,Super_Block.sizeofblock);
                 }else{ //sino, entonces hay espacio aun en el ultimo IS del ID correspondiente que esta usando el IT
                     IS_to_write = floor(IS_to_write); //redondeamos hacia abajo para luego sacar el index donde va ir la data en ese IS
                     indexIS_inID = floor(indexIS_inID); //redondeamos hacia abajo para sacar el index del IS en el ID
-                    read(disk,(char*)IT_ID_IS,IT_ID[(int)indexIS_inID]*Super_Block.sizeofblock,Super_Block.sizeofblock); //lo leemos
+                    read(disk,(char*)&IT_ID_IS,IT_ID[(int)indexIS_inID]*Super_Block.sizeofblock,Super_Block.sizeofblock); //lo leemos
                 }
                 int indexInIS = b_data_IT - x*IS_to_write; //calculamos el index de la DATA dentro del IS
 
@@ -1091,7 +1100,7 @@ void FileSys::writeInode(Inode *inode, string disk, char *buffer, double size)
 
                 //escribimos en el disco el bloque de DATA y el IS correcpondiente
                 write(disk,buffer,block*Super_Block.sizeofblock,size);
-                write(disk,(char*)IT_ID_IS,IT_ID[(int)indexIS_inID]*Super_Block.sizeofblock,Super_Block.sizeofblock);
+                write(disk,(char*)&IT_ID_IS,IT_ID[(int)indexIS_inID]*Super_Block.sizeofblock,Super_Block.sizeofblock);
             }
 //        }else{ //si al ultimo bloque le falta por llenarse
 

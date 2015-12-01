@@ -2,6 +2,8 @@
 #define FILESYS_H
 
 #include <QMainWindow>
+#include <QtConcurrent/QtConcurrent>
+#include <QProgressBar>
 #include <QFileDialog>
 #include "blocksbox.h"
 #include "tree.h"
