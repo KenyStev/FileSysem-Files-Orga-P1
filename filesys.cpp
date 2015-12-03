@@ -480,7 +480,6 @@ void FileSys::mkfile(string name, int size)
                 }
             }
         }
-        delete progressBar;
     }
 //    else{
 //        //cout<<"Ya existe el nombre"<<endl;
