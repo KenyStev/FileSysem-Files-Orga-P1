@@ -35,6 +35,7 @@ private:
 
 //    ofstream *diskManager = NULL;
     BlocksBox *blocks=NULL;
+    QFileDialog *input=NULL;
     Tree *tree=NULL;
 
     QString mounted_disk = "";
