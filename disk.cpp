@@ -143,7 +143,6 @@ bool is_block_in_use(char* bitmap, int blocknum)
      }else{
          return false;
      }
-
 }
 
 void setBlock_use(char* bitmap, int blocknum){
