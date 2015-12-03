@@ -200,6 +200,7 @@ void FileSys::mountDisk(QString disk_name)
             //cout<<"start_datablocks: "<<start_datablocks<<endl;
 
             //Leyendo bitmap
+            delete bitmap;
             bitmap = new char[Super_Block.cantofblock/8];
             start_bitmap = in.tellg(); //guardando el lugar donde comienza el bitmap
 
@@ -207,6 +208,7 @@ void FileSys::mountDisk(QString disk_name)
             //cout<<"is_in_use 0: "<<is_block_in_use(bitmap,0)<<endl;
 
             //leyendo bitmap_inodos
+            delete bitmap_inodes;
             bitmap_inodes = new char[Super_Block.cantofinode/8];
             start_bitmap_inodes = in.tellg(); //guardando el lugar donde comienza el bitmap_inodes
 
@@ -217,6 +219,11 @@ void FileSys::mountDisk(QString disk_name)
             int size_DataFile = sizeof(FileData);
             buffer[size_DataFile];
             start_filetable = in.tellg(); //guardando el lugar donde comienza el FileTable
+
+            for (int i = 0; i < file_data_array.size(); ++i) {
+                delete file_data_array[i];
+            }
+            file_data_array.clear();
 
             for (int i = 0; i < Super_Block.cantofinode; ++i) {
                 in.read(buffer,size_DataFile);
@@ -537,16 +544,17 @@ void FileSys::mkDir(string name)
 
         //nuevo inodo para el nuevo 'dir'
         Inode new_dir;
+        initInode(&new_dir);
         strcpy(new_dir.permisos,"drwxrwxrwx");
-        for (int i = 0; i < 10; ++i) {
-            (new_dir.directos)[i] = -1;
-        }
-        new_dir.filesize = -1;
-        new_dir.blockuse = -1;
-        new_dir.indirectossimples = -1;
-        new_dir.indirectosdobles = -1;
-        new_dir.indirectostriples = -1;
-        new_dir.lastDataBlock = -1;
+//        for (int i = 0; i < 10; ++i) {
+//            (new_dir.directos)[i] = -1;
+//        }
+//        new_dir.filesize = -1;
+//        new_dir.blockuse = -1;
+//        new_dir.indirectossimples = -1;
+//        new_dir.indirectosdobles = -1;
+//        new_dir.indirectostriples = -1;
+//        new_dir.lastDataBlock = -1;
 
         FileData refer_to_father;
         strcpy(refer_to_father.name,"..");
@@ -793,6 +801,10 @@ void FileSys::cd(string dir_to_move)
             }
         }
         ui->listTerm->appendPlainText(QString((dir_to_move + " no existe!").c_str()));
+        for (int i = 0; i < filetable.size(); ++i) {
+            delete filetable[i];
+        }
+        filetable.clear();
     }
 }
 
@@ -893,6 +905,10 @@ void FileSys::cp(string file, string new_name, QString path)
                     }
                 }
             }
+            for (int i = 0; i < filetable.size(); ++i) {
+                delete filetable[i];
+            }
+            filetable.clear();
         }
     }
 }
@@ -1234,6 +1250,11 @@ void FileSys::rm(string filename)
                     updateSuperBlock();
                 }
             }
+            for (int i = 0; i < filetable.size(); ++i) {
+                delete filetable[i];
+            }
+            filetable.clear();
+            delete all_datablocks;
         }
     }
 }
@@ -1280,7 +1301,8 @@ void FileSys::on_btnAddFile_clicked()
 {
     if(is_mounted_disk)
     {
-        QFileDialog *input = new QFileDialog();
+        delete input;
+        input = new QFileDialog();
         string filePath = input->getOpenFileName().toStdString();
         //cout<<filePath.c_str()<<endl;
         addFile(filePath);
