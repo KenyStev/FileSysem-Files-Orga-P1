@@ -45,8 +45,8 @@ private:
     double current_inode_ptr=0;
     SuperBlock Super_Block;
     vector<FileData*> file_data_array;
-    char *bitmap;
-    char *bitmap_inodes;
+    char *bitmap=NULL;
+    char *bitmap_inodes=NULL;
     double start_bitmap=0,start_bitmap_inodes=0,start_filetable=0,start_inodes=0,start_datablocks=0;
     vector<QString> disks;
 

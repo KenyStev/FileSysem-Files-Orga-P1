@@ -197,6 +197,7 @@ vector<FileData*> getFileTableFrom(Inode dir, char* buffer);
 
 vector<double> getDataBlocksFrom(string disk,Inode *inode,int sizeblock);
 vector<double> getAllBlocksUsedFor(string disk, Inode *inode, int sizeblock);
+vector<double> get_IBlocks_UsedFor(string disk, Inode *inode, int sizeblock);
 
 void copy(Inode *from, Inode *to);
 
