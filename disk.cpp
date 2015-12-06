@@ -534,8 +534,8 @@ void readDataBlocksFrom(string disk,char *&buffer, Inode *inode, double sizebloc
 
         if((inode->directos)[i]!=-1)
         {
-            char *dataBlock = new char[(int)sizeblock];
-            read(disk,dataBlock,(inode->directos)[i]*sizeblock,size_to_write);
+            char dataBlock[(int)sizeblock];
+            read(disk,(char*)&dataBlock,(inode->directos)[i]*sizeblock,size_to_write);
             memtransbuffer(buffer,dataBlock,iterate,size_to_write);
             iterate+=size_to_write;
             //cout<<"iterate: "<<iterate<<endl;
@@ -840,63 +840,67 @@ vector<double> getDataBlocksFrom(string disk, Inode *inode, int sizeblock)
     //cout<<"Directos en: "<<endl;
     for (int i = 0; i < 10; ++i) {
         //cout<<i<<"- "<<(inode->directos)[i]<<endl;
-        blocks.push_back((inode->directos)[i]);
+        if((inode->directos)[i]!=-1)
+            blocks.push_back((inode->directos)[i]);
     }
 
     //lee IS
     int x = sizeblock/8;
-    double *buf = new double[x];
-    read(disk,(char*)buf,inode->indirectossimples*sizeblock,sizeblock);
+    double buf[x];
+    read(disk,(char*)&buf,inode->indirectossimples*sizeblock,sizeblock);
 
     if(inode->indirectossimples!=-1)
     {
         //cout<<"Leido del Disco IS en!: "<<inode->indirectossimples<<endl;
         for (int i = 0; i < x; ++i) {
             //cout<<"data en- "<<buf[i]<<endl;
-            blocks.push_back(buf[i]);
+            if(buf[i]!=-1)
+                blocks.push_back(buf[i]);
         }
     }
 
     //lee ID
-    read(disk,(char*)buf,inode->indirectosdobles*sizeblock,sizeblock);
+    read(disk,(char*)&buf,inode->indirectosdobles*sizeblock,sizeblock);
     //cout<<"Leido del Disco ID en!: "<<inode->indirectosdobles<<endl;
 
     if(inode->indirectosdobles!=-1)
     {
         for (int i = 0; i < x; ++i) {
             //cout<<"IS en- "<<buf[i]<<endl;
-            double *buf2 = new double[x];
-            read(disk,(char*)buf2,buf[i]*sizeblock,sizeblock);
+            double buf2[x];
+            read(disk,(char*)&buf2,buf[i]*sizeblock,sizeblock);
             if(buf[i]!=-1)
             {
                 for (int j = 0; j < x; ++j) {
                     //cout<<"data en:- "<<buf2[j]<<endl;
-                    blocks.push_back(buf2[j]);
+                    if(buf2[j]!=-1)
+                        blocks.push_back(buf2[j]);
                 }
             }
         }
     }
 
     //lee IT
-    read(disk,(char*)buf,inode->indirectostriples*sizeblock,sizeblock);
+    read(disk,(char*)&buf,inode->indirectostriples*sizeblock,sizeblock);
     //cout<<"Leido del Disco IT en!: "<<inode->indirectostriples<<endl;
     if(inode->indirectostriples!=-1)
     {
         for (int i = 0; i < x; ++i) {
             //cout<<"ID en- "<<buf[i]<<endl;
-            double *buf2 = new double[x];
-            read(disk,(char*)buf2,buf[i]*sizeblock,sizeblock);
+            double buf2[x];
+            read(disk,(char*)&buf2,buf[i]*sizeblock,sizeblock);
             if(buf[i]!=-1)
             {
                 for (int j = 0; j < x; ++j) {
                     //cout<<"IS en- "<<buf2[j]<<endl;
-                    double *buf3 = new double[x];
-                    read(disk,(char*)buf3,buf2[j]*sizeblock,sizeblock);
+                    double buf3[x];
+                    read(disk,(char*)&buf3,buf2[j]*sizeblock,sizeblock);
                     if(buf2[j]!=-1)
                     {
                         for (int k = 0; k < x; ++k) {
                             //cout<<"data en- "<<buf3[k]<<endl;
-                            blocks.push_back(buf3[k]);
+                            if(buf3[k]!=-1)
+                                blocks.push_back(buf3[k]);
                         }
                     }
                 }
@@ -909,23 +913,18 @@ vector<double> getDataBlocksFrom(string disk, Inode *inode, int sizeblock)
 vector<double> getAllBlocksUsedFor(string disk, Inode *inode, int sizeblock)
 {
     vector<double> blocks;
-    double sizefile = inode->filesize;
-    double size_to_write = sizeblock;
-    int iterate = 0;
 
     //cout<<"Directos en: "<<endl;
     for (int i = 0; i < 10; ++i) {
         //cout<<i<<"- "<<(inode->directos)[i]<<endl;
         if(inode->directos[i]!=-1)
             blocks.push_back((inode->directos)[i]);
-//        else
-//            return;
     }
 
     //lee IS
     int x = sizeblock/8;
-    double *buf = new double[x];
-    read(disk,(char*)buf,inode->indirectossimples*sizeblock,sizeblock);
+    double buf[x];
+    read(disk,(char*)&buf,inode->indirectossimples*sizeblock,sizeblock);
 
     if(inode->indirectossimples!=-1)
     {
@@ -939,7 +938,7 @@ vector<double> getAllBlocksUsedFor(string disk, Inode *inode, int sizeblock)
     }
 
     //lee ID
-    read(disk,(char*)buf,inode->indirectosdobles*sizeblock,sizeblock);
+    read(disk,(char*)&buf,inode->indirectosdobles*sizeblock,sizeblock);
     //cout<<"Leido del Disco ID en!: "<<inode->indirectosdobles<<endl;
 
     if(inode->indirectosdobles!=-1)
@@ -950,8 +949,8 @@ vector<double> getAllBlocksUsedFor(string disk, Inode *inode, int sizeblock)
             if(buf[i]!=-1)
             {
                 blocks.push_back(buf[i]);
-                double *buf2 = new double[x];
-                read(disk,(char*)buf2,buf[i]*sizeblock,sizeblock);
+                double buf2[x];
+                read(disk,(char*)&buf2,buf[i]*sizeblock,sizeblock);
 
                 for (int j = 0; j < x; ++j) {
                     //cout<<"data en:- "<<buf2[j]<<endl;
@@ -970,15 +969,15 @@ vector<double> getAllBlocksUsedFor(string disk, Inode *inode, int sizeblock)
         blocks.push_back(inode->indirectostriples);
         for (int i = 0; i < x; ++i) {
             //cout<<"ID en- "<<buf[i]<<endl;
-            double *buf2 = new double[x];
-            read(disk,(char*)buf2,buf[i]*sizeblock,sizeblock);
+            double buf2[x];
+            read(disk,(char*)&buf2,buf[i]*sizeblock,sizeblock);
             if(buf[i]!=-1)
             {
                 blocks.push_back(buf[i]);
                 for (int j = 0; j < x; ++j) {
                     //cout<<"IS en- "<<buf2[j]<<endl;
-                    double *buf3 = new double[x];
-                    read(disk,(char*)buf3,buf2[j]*sizeblock,sizeblock);
+                    double buf3[x];
+                    read(disk,(char*)&buf3,buf2[j]*sizeblock,sizeblock);
                     if(buf2[j]!=-1)
                     {
                         blocks.push_back(buf2[j]);
@@ -987,6 +986,64 @@ vector<double> getAllBlocksUsedFor(string disk, Inode *inode, int sizeblock)
                             if(buf3[k]!=-1)
                                 blocks.push_back(buf3[k]);
                         }
+                    }
+                }
+            }
+        }
+    }
+    return blocks;
+}
+
+vector<double> get_IBlocks_UsedFor(string disk, Inode *inode, int sizeblock)
+{
+    vector<double> blocks;
+
+    //lee IS
+    int x = sizeblock/8;
+    double buf[x];
+    read(disk,(char*)&buf,inode->indirectossimples*sizeblock,sizeblock);
+
+    if(inode->indirectossimples!=-1)
+    {
+        blocks.push_back(inode->indirectossimples);
+    }
+
+    //lee ID
+    read(disk,(char*)&buf,inode->indirectosdobles*sizeblock,sizeblock);
+    //cout<<"Leido del Disco ID en!: "<<inode->indirectosdobles<<endl;
+
+    if(inode->indirectosdobles!=-1)
+    {
+        blocks.push_back(inode->indirectosdobles);
+        for (int i = 0; i < x; ++i) {
+            //cout<<"IS en- "<<buf[i]<<endl;
+            if(buf[i]!=-1)
+            {
+                blocks.push_back(buf[i]);
+            }
+        }
+    }
+
+    //lee IT
+    read(disk,(char*)buf,inode->indirectostriples*sizeblock,sizeblock);
+    //cout<<"Leido del Disco IT en!: "<<inode->indirectostriples<<endl;
+    if(inode->indirectostriples!=-1)
+    {
+        blocks.push_back(inode->indirectostriples);
+        for (int i = 0; i < x; ++i) {
+            //cout<<"ID en- "<<buf[i]<<endl;
+            double buf2[x];
+            read(disk,(char*)&buf2,buf[i]*sizeblock,sizeblock);
+            if(buf[i]!=-1)
+            {
+                blocks.push_back(buf[i]);
+                for (int j = 0; j < x; ++j) {
+                    //cout<<"IS en- "<<buf2[j]<<endl;
+                    double buf3[x];
+                    read(disk,(char*)&buf3,buf2[j]*sizeblock,sizeblock);
+                    if(buf2[j]!=-1)
+                    {
+                        blocks.push_back(buf2[j]);
                     }
                 }
             }

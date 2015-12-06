@@ -6,10 +6,11 @@ BlocksBox::BlocksBox(QWidget *parent,vector<FileData*> *file_data_array,double c
     ui(new Ui::BlocksBox)
 {
     ui->setupUi(this);
-    int cols = 10;
+    int cols = 12;
     ui->tableBlocks->setColumnCount(cols);
     double cont=0;
     usedColors.push_back("0 100 0");
+    usedColors.push_back("150 0 0");
     usedColors.push_back("104 104 104");
 
     for (int i = 0; i < cantOfBlocks; ++i) {
@@ -39,7 +40,12 @@ BlocksBox::BlocksBox(QWidget *parent,vector<FileData*> *file_data_array,double c
                 read(disk,(char*)&buf,start_inodes + (*file_data_array)[i]->index_file*sizeof(Inode),sizeof(Inode));
                 memcpy(&inode,buf,sizeof(Inode));
 
-                vector<double> AllBlocks = getAllBlocksUsedFor(disk,&inode,sizeofblock);
+                vector<double> IBlocks = get_IBlocks_UsedFor(disk,&inode,sizeofblock);
+                vector<double> AllBlocks = getDataBlocksFrom(disk,&inode,sizeofblock);//getAllBlocksUsedFor(disk,&inode,sizeofblock);
+
+                for (int j = 0; j < IBlocks.size(); ++j) {
+                    listItems[IBlocks[j]]->setBackground(QBrush(QColor(150,0,0)));
+                }
 
                 for (int j = 0; j < AllBlocks.size(); ++j) {
 //                    setColorTo(AllBlocks[j]);

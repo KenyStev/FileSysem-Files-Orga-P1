@@ -170,7 +170,6 @@ void FileSys::mountDisk(QString disk_name)
 
         if(is_mounted_disk)
         {
-            ui->listTerm->appendPlainText("Disco: " + disk_name + " montado!");
             mounted_disk = disk_name;
             T_name = (disks_path + mounted_disk + format).toStdString();
 
@@ -245,6 +244,7 @@ void FileSys::mountDisk(QString disk_name)
             //cout<<"FD_root_index_inode: "<<file_data_array[0]->index_file<<endl;
             //cout<<"FD_1: "<<file_data_array[1]->name<<endl;
             //cout<<"FD_1_index_inode: "<<file_data_array[1]->index_file<<endl;
+            ui->listTerm->appendPlainText("Disco: " + disk_name + " montado!");
 
         }else{
             ui->listTerm->appendPlainText("No se pudo montar el disco: " + disk_name + "!");
