@@ -223,12 +223,18 @@ void FileSys::mountDisk(QString disk_name)
                 delete file_data_array[i];
             }
             file_data_array.clear();
+            delete file_table_BTree;
+            file_table_BTree = new Btree<NodoFT*,order>();
 
             for (int i = 0; i < Super_Block.cantofinode; ++i) {
                 in.read(buffer,size_DataFile);
                 FileData *FD = new FileData();
                 memcpy(FD,buffer,size_DataFile);
                 file_data_array.push_back(FD);
+                if(FD->index_file!=-1){
+                    NodoFT *nodo = new NodoFT(hashCode(string(FD->name)),i);
+                    file_table_BTree->insertar(nodo);
+                }
             }
 
             start_inodes = in.tellg(); //guardando el lugar donde comienzan los inodos
@@ -368,6 +374,8 @@ void FileSys::mkfile(string name, int size)
         Super_Block.freeinode--;
         strcpy(file_data_array[index]->name,name.c_str());
         file_data_array[index]->index_file = inode;
+        NodoFT *nodo = new NodoFT(hashCode(name),index);
+        file_table_BTree->insertar(nodo);
 
         Inode new_inode;
         char buffer[sizeof(Inode)];
@@ -538,6 +546,8 @@ void FileSys::mkDir(string name)
         Super_Block.freeinode--;
         strcpy(file_data_array[index]->name,name.c_str());
         file_data_array[index]->index_file = inode;
+        NodoFT *nodo = new NodoFT(hashCode(name),index);
+        file_table_BTree->insertar(nodo);
 
         //escribiendo filedata en el disco
         write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
@@ -890,6 +900,8 @@ void FileSys::cp(string file, string new_name, QString path)
                         strcpy(file_data_array[(int)index_FT]->name,new_name.c_str());
                         file_data_array[(int)index_FT]->index_file = inode;
                         write(T_name,(char*)file_data_array[(int)index_FT],start_filetable + index_FT*sizeof(FileData),sizeof(FileData));
+                        NodoFT *nodo = new NodoFT(hashCode(new_name),index_FT);
+                        file_table_BTree->insertar(nodo);
 
                         //escribiendo filedata del directorio donde se copiara
                         updateFileTableFromDir(&dir_to,file_data_array[(int)index_FT]);
@@ -1154,6 +1166,8 @@ void FileSys::addFile(string filename)
                     strcpy(file_data_array[index]->name,name.c_str());
                     file_data_array[index]->index_file = inode;
                     write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
+                    NodoFT *nodo = new NodoFT(hashCode(name),index);
+                    file_table_BTree->insertar(nodo);
 
                     Inode new_inode;
                     initInode(&new_inode);
@@ -1225,6 +1239,10 @@ void FileSys::rm(string filename)
                     double inode_index = filetable[indexFileInFileTable]->index_file;
                     //cout<<"inode_index: "<<inode_index<<endl;
                     filetable.erase(filetable.begin() + indexFileInFileTable);
+
+                    NodoFT *nodo = new NodoFT(hashCode(filename),indexFileInFileTable);
+                    file_table_BTree->remover(nodo);
+
                     strcpy(file_data_array[(int)indexFileTableGlobal]->name,"");
                     file_data_array[(int)indexFileTableGlobal]->index_file = -1;
                     vector<double> blocksUsedForDir = getAllBlocksUsedFor(T_name,&current_inode,Super_Block.sizeofblock);
@@ -1261,23 +1279,36 @@ void FileSys::rm(string filename)
 
 int FileSys::searchInFileTable(string name)
 {
-    for (int i = 0; i < file_data_array.size(); ++i) {
-        if(strcmp(file_data_array[i]->name,name.c_str())==0)
-        {
-            return i;
-        }
+//    for (int i = 0; i < file_data_array.size(); ++i) {
+//        if(strcmp(file_data_array[i]->name,name.c_str())==0)
+//        {
+//            return i;
+//        }
+//    }
+    NodoFT *searched = new NodoFT(hashCode(name),0);
+    if(file_table_BTree->buscar(searched))
+    {
+        return searched->index_FT;
     }
     return -1;
 }
 
 int FileSys::searchInodeInFileTable(string name)
 {
-    for (int i = 0; i < file_data_array.size(); ++i) {
-        if(strcmp(file_data_array[i]->name,name.c_str())==0)
-        {
-            return file_data_array[i]->index_file;
-        }
+//    for (int i = 0; i < file_data_array.size(); ++i) {
+//        if(strcmp(file_data_array[i]->name,name.c_str())==0)
+//        {
+//            return file_data_array[i]->index_file;
+//        }
+//    }
+
+    int index = searchInFileTable(name);
+
+    if(index>=0)
+    {
+        return file_data_array[index]->index_file;
     }
+
     return -1;
 }
 

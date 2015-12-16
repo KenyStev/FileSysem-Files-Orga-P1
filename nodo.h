@@ -3,6 +3,9 @@
 
 #include <QString>
 #include <vector>
+#include <iostream>
+
+using namespace std;
 
 class Nodo
 {
@@ -10,13 +13,23 @@ public:
     Nodo(QString v)
     {
         valor=v;
-//        izq=NULL;
-//        der=NULL;
     }
 
     QString valor;
-//    Nodo *izq, *der;
     vector<Nodo*> hijos;
+};
+
+class NodoFT
+{
+public:
+    NodoFT(int index, double index_FT)
+    {
+        this->index=index;
+        this->index_FT=index_FT;
+    }
+
+    int index;
+    double index_FT;
 };
 
 #endif // NODO

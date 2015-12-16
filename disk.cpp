@@ -1101,3 +1101,27 @@ void initInode(Inode *inode)
     inode->lastDataBlock = -1;
     strcpy(inode->permisos,"----------");
 }
+
+int hashCode(string text){
+    int hash = 0, strlen = text.length(), i;
+    char character;
+    if (strlen == 0)
+        return hash;
+    for (i = 0; i < strlen; i++) {
+        character = text[i];
+        hash = (31 * hash) + int(character);
+    }
+    return hash;
+}
+
+int fibonachi(int n, int before, int after, int cont)
+{
+    if(cont<=n)
+        return fibonachi(n, after, after+before, cont+1);
+    return before;
+}
+
+int fibonachi(int n)
+{
+    return fibonachi(n,1,0,0);
+}

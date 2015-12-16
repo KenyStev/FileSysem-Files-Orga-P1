@@ -32,11 +32,13 @@ private slots:
 
 private:
     Ui::FileSys *ui;
+    const static int order = 3;
 
 //    ofstream *diskManager = NULL;
     BlocksBox *blocks=NULL;
     QFileDialog *input=NULL;
     Tree *tree=NULL;
+    Btree<NodoFT*, order> *file_table_BTree=NULL;
 
     QString mounted_disk = "";
     string T_name;
