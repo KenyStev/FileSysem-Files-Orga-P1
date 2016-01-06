@@ -1,7 +1,7 @@
 #ifndef DISK_H
 #define DISK_H
 
-#include <iostream>
+//#include <iostream>
 #include <fstream>
 #include <iomanip>
 #include <stdio.h>
@@ -9,11 +9,12 @@
 #include <string.h>
 #include <string>
 #include <QDir>
-#include <vector>
+//#include <vector>
 #include <QStringList>
 #include <QFileInfoList>
 #include <QFile>
 #include <math.h>
+#include "Btree.h"
 
 using namespace std;
 
@@ -203,5 +204,8 @@ void copy(Inode *from, Inode *to);
 
 double getTotalSizeUsed(double filesize,double blocks_data, double sizeblock);
 void initInode(Inode *inode);
+int hashCode(string text);
+int fibonachi(int n, int before, int after, int cont);
+int fibonachi(int n);
 
 #endif // DISK_H

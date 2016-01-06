@@ -9,7 +9,7 @@ BlocksBox::BlocksBox(QWidget *parent,vector<FileData*> *file_data_array,double c
     int cols = 12;
     ui->tableBlocks->setColumnCount(cols);
     double cont=0;
-    usedColors.push_back("0 100 0");
+//    usedColors.push_back("0 100 0");
     usedColors.push_back("150 0 0");
     usedColors.push_back("104 104 104");
 
@@ -20,10 +20,11 @@ BlocksBox::BlocksBox(QWidget *parent,vector<FileData*> *file_data_array,double c
         {
             QBrush brush(QColor(104,104,104));
             item->setBackground(brush);
-        }else{
-            QBrush brush(QColor(0,100,0));
-            item->setBackground(brush);
         }
+//        else{
+//            QBrush brush(QColor(0,100,0));
+//            item->setBackground(brush);
+//        }
         ui->tableBlocks->setItem(ui->tableBlocks->rowCount()-1,cont++,item);
         listItems.push_back(item);
     }
@@ -87,7 +88,7 @@ void BlocksBox::newColor()
 {
     while(true){
         r = rand()%256;
-        g = rand()%10;
+        g = rand()%256;
         b = rand()%256;
         QString color = QString::number(r) + " " + QString::number(g) + " " + QString::number(b);
         if(!usedColors.contains(color))

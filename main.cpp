@@ -47,5 +47,12 @@ int main(int argc, char *argv[])
 
     cout<<"Size FileTable: "<<sizeof(FileData)<<endl;
 
+//    Btree<NodoFT*,3> tree;
+
+//    NodoFT *n = new NodoFT(100,10);
+//    tree.insertar(n);
+
+//    tree.mostrarArbol();
+
     return a.exec();
 }

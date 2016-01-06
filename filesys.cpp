@@ -6,8 +6,12 @@ FileSys::FileSys(QWidget *parent) :
     ui(new Ui::FileSys)
 {
     ui->setupUi(this);
+    srand (time(NULL));
 
-    QDir dir(disks_path);
+    QDir dir("");
+    dir.mkdir(disks_path);
+    dir.mkdir(dirToExport);
+    dir = QDir(disks_path);
 
     //cout<<dir.dirName().toStdString()<<endl;
     QFileInfoList list = dir.entryInfoList();
@@ -223,12 +227,18 @@ void FileSys::mountDisk(QString disk_name)
                 delete file_data_array[i];
             }
             file_data_array.clear();
+            delete file_table_BTree;
+            file_table_BTree = new Btree<NodoFT*,order>();
 
             for (int i = 0; i < Super_Block.cantofinode; ++i) {
                 in.read(buffer,size_DataFile);
                 FileData *FD = new FileData();
                 memcpy(FD,buffer,size_DataFile);
                 file_data_array.push_back(FD);
+                if(FD->index_file!=-1){
+                    NodoFT *nodo = new NodoFT(hashCode(string(FD->name)),i);
+                    file_table_BTree->insertar(nodo);
+                }
             }
 
             start_inodes = in.tellg(); //guardando el lugar donde comienzan los inodos
@@ -368,6 +378,8 @@ void FileSys::mkfile(string name, int size)
         Super_Block.freeinode--;
         strcpy(file_data_array[index]->name,name.c_str());
         file_data_array[index]->index_file = inode;
+        NodoFT *nodo = new NodoFT(hashCode(name),index);
+        file_table_BTree->insertar(nodo);
 
         Inode new_inode;
         char buffer[sizeof(Inode)];
@@ -538,6 +550,8 @@ void FileSys::mkDir(string name)
         Super_Block.freeinode--;
         strcpy(file_data_array[index]->name,name.c_str());
         file_data_array[index]->index_file = inode;
+        NodoFT *nodo = new NodoFT(hashCode(name),index);
+        file_table_BTree->insertar(nodo);
 
         //escribiendo filedata en el disco
         write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
@@ -703,6 +717,139 @@ void FileSys::mkfile2(string name, int size)
         ui->listTerm->appendPlainText("Archivo mas grando a lo que puede almacenar el inodo!");
     }
 
+}
+
+bool FileSys::save_fragmented(Inode *new_inode,char *buffer, int size, int inode_index)
+{
+    double size_bytes = size;//*pow(1024,2);
+    double bloques_data = ceil(size_bytes/Super_Block.sizeofblock);
+    vector<double> Total_blocks = getTotalBlocksToUse(size_bytes,Super_Block.sizeofblock);
+//    string T_name = (disks_path + mounted_disk + format).toStdString();
+
+    if(Total_blocks[0] >= 0)
+    {
+        char *buffer;
+        readDataBlocksFrom(T_name,buffer,new_inode,Super_Block.sizeofblock);
+//        char buffer[Super_Block.sizeofblock];
+//        memset(buffer,'N',Super_Block.sizeofblock);
+//        for (int i = 0; i < Super_Block.sizeofblock; ++i) {
+//            buffer[i] = rand()%25 + 65;
+//        }
+        vector<double> blocks = getFreeSequentialBlocks(bitmap,Super_Block.cantofblock,Total_blocks[Total_blocks.size()-1]);
+        vector<double> inode;// = getFreeBlocks(bitmap_inodes,Super_Block.cantofinode,1);
+        inode.push_back(inode_index);
+
+        //cout<<"Bloques dados por el bitmap!"<<endl;
+        for (double i = 0; i < Total_blocks[Total_blocks.size()-1]; ++i) {
+            //cout<<"-- "<<blocks[i]<<endl;
+        }
+
+        if(blocks[0]>0) // valida que hallan la cantidad de bloques suficientes, para que quepa en el disco
+        {
+            //guarda el filetable
+//            for (int i = 0; i < Super_Block.cantofinode; ++i) {
+//                if(file_data_array[i]->index_file==-1)
+//                {
+//                    int index = get_NextFree_FileTable();
+//                    strcpy(file_data_array[index]->name,name.c_str());
+//                    file_data_array[index]->index_file = inode[0];
+//                    write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
+//                    break;
+//                }
+//            }
+
+            //escribe el archivo
+            double size_bytes_temp = size_bytes;
+            int size_to_write = Super_Block.sizeofblock;
+            int iterate=0;
+            for (double i = 0; i < bloques_data; ++i) {
+                if(size_bytes_temp<size_to_write)
+                    size_to_write = size_bytes_temp;
+                size_bytes_temp-=size_to_write;
+                char *buf = new char[size_to_write];
+                memtransbuffer(buf,buffer,iterate,size_to_write);
+                write(T_name,(char*)&buf,blocks[i]*(Super_Block.sizeofblock),size_to_write);
+                iterate+=size_to_write;
+                delete buf;
+            }
+//            if(file_size_bytes_temp>0)
+//            {
+//                char *buff = new char[(int)(file_size_bytes_temp)];
+//                memset(buff,'K',file_size_bytes_temp);
+//                write(T_name,buff,blocks[bloques_data-1]*(Super_Block.sizeofblock),file_size_bytes_temp);
+//            }
+
+
+            //comenzar en bloques_data
+            //guardar inodo, con sus apuntadores
+//            Inode new_inode;
+//            buffer = new char[sizeof(Inode)];
+//            read(T_name, buffer,start_inodes + inode[0]*sizeof(Inode),sizeof(Inode));
+//            memcpy(&new_inode,buffer,sizeof(Inode));
+//            new_inode.blockuse = bloques_data;
+//            new_inode.filesize = size_bytes;
+//            strcpy(new_inode.permisos,"-rwxrwxrwx");
+
+            //setear las direcciones de los bloques en el inode
+
+            double Total_blocks_inodes = Total_blocks[Total_blocks.size()-1] - bloques_data;
+
+            //cout<<"caso: "<<Total_blocks[0]<<endl;
+            if(Total_blocks[0]==0)
+            {
+                for (int i = 0; i < Total_blocks[1]; ++i) {
+                    new_inode->directos[i] = blocks[i];
+//                    Total_blocks_inodes--;
+                }
+                write(T_name,(char*)new_inode,start_inodes + inode[0]*sizeof(Inode),sizeof(Inode));
+            }else{
+                for (int i = 0; i < 10; ++i) {
+                    new_inode->directos[i] = blocks[i];
+//                    Total_blocks_inodes--;
+                }
+
+                vector<double> data_index;
+                vector<double> inodes_index;
+                for (double i = 0; i < Total_blocks[Total_blocks.size()-1]; ++i) {
+                    if(i<bloques_data){
+                        data_index.push_back(blocks[i]);
+                    }else{
+                        inodes_index.push_back(blocks[i]);
+                    }
+                }
+
+                writeInodesBlocks(T_name,data_index,inodes_index,Total_blocks,Super_Block.sizeofblock,new_inode,start_inodes);
+                write(T_name,(char*)&new_inode,start_inodes + inode[0]*sizeof(Inode),sizeof(Inode));
+            }
+
+
+            //guardar bitmaps
+            write(T_name,bitmap,start_bitmap,Super_Block.cantofblock/8);
+            write(T_name,bitmap_inodes,start_bitmap_inodes,Super_Block.cantofinode/8);
+
+            //guardar Super Block
+            Super_Block.freeblock -= Total_blocks[Total_blocks.size()-1];
+            (Super_Block.freeinode)--;
+            Super_Block.freespace -= (size_bytes + (Total_blocks[Total_blocks.size()-1] - bloques_data)*Super_Block.sizeofblock);
+            write(T_name,(char*)&Super_Block,0,sizeof(SuperBlock));
+
+            ui->listTerm->appendPlainText("Archivo creado!");
+            //cout<<"Archivo creado!"<<endl;
+            //cout<<"inodo usado: "<<inode[0]<<endl;
+            //cout<<"bloques usados: "<<Total_blocks[Total_blocks.size()-1]<<endl;
+            //cout<<"Directos en: "<<endl;
+            for (int i = 0; i < 10; ++i) {
+                //cout<<i<<"- "<<(new_inode.directos)[i]<<endl;
+            }
+            return true;
+        }else{
+            ui->listTerm->appendPlainText("No hay espacio sificiente en el disco!");
+//            return false;
+        }
+    }else{
+        ui->listTerm->appendPlainText("Archivo mas grando a lo que puede almacenar el inodo!");
+    }
+    return false;
 }
 
 void FileSys::updateFileTableFromDir(Inode *inode, FileData *data)
@@ -890,6 +1037,8 @@ void FileSys::cp(string file, string new_name, QString path)
                         strcpy(file_data_array[(int)index_FT]->name,new_name.c_str());
                         file_data_array[(int)index_FT]->index_file = inode;
                         write(T_name,(char*)file_data_array[(int)index_FT],start_filetable + index_FT*sizeof(FileData),sizeof(FileData));
+                        NodoFT *nodo = new NodoFT(hashCode(new_name),index_FT);
+                        file_table_BTree->insertar(nodo);
 
                         //escribiendo filedata del directorio donde se copiara
                         updateFileTableFromDir(&dir_to,file_data_array[(int)index_FT]);
@@ -1154,6 +1303,8 @@ void FileSys::addFile(string filename)
                     strcpy(file_data_array[index]->name,name.c_str());
                     file_data_array[index]->index_file = inode;
                     write(T_name,(char*)file_data_array[index],start_filetable + index*sizeof(FileData),sizeof(FileData));
+                    NodoFT *nodo = new NodoFT(hashCode(name),index);
+                    file_table_BTree->insertar(nodo);
 
                     Inode new_inode;
                     initInode(&new_inode);
@@ -1225,6 +1376,10 @@ void FileSys::rm(string filename)
                     double inode_index = filetable[indexFileInFileTable]->index_file;
                     //cout<<"inode_index: "<<inode_index<<endl;
                     filetable.erase(filetable.begin() + indexFileInFileTable);
+
+                    NodoFT *nodo = new NodoFT(hashCode(filename),indexFileInFileTable);
+                    file_table_BTree->remover(nodo);
+
                     strcpy(file_data_array[(int)indexFileTableGlobal]->name,"");
                     file_data_array[(int)indexFileTableGlobal]->index_file = -1;
                     vector<double> blocksUsedForDir = getAllBlocksUsedFor(T_name,&current_inode,Super_Block.sizeofblock);
@@ -1259,25 +1414,197 @@ void FileSys::rm(string filename)
     }
 }
 
+void FileSys::Fragmentar()
+{
+    if(is_mounted_disk)
+    {
+        int x = Super_Block.sizeofblock/sizeof(double);
+        int s;
+        int limit = Super_Block.freeblock*0.05;
+        cout<<"limit: "<<limit<<endl;
+        int cont=rand()%100;
+        string name = "file";
+        cout<<name.c_str()<<endl;
+        switch (cont) {
+        case 0 ... 25:
+            for (int i = 0; i < limit; ++i) {
+                s = 10;
+                name = "file"+QString::number(cont).toStdString();
+                cout<<name.c_str()<<endl;
+                mkfile(name,s*Super_Block.sizeofblock);
+                s = x + 10;
+                name = "file"+QString::number(cont+1).toStdString();
+                mkfile(name,s*Super_Block.sizeofblock);
+                name = "file"+QString::number(cont+2).toStdString();
+                mkfile(name,s*Super_Block.sizeofblock);
+                s = x*x + x + 10;
+                name = "file"+QString::number(cont+3).toStdString();
+                cout<<name.c_str()<<endl;
+                mkfile(name,s*Super_Block.sizeofblock);
+
+                name = "file"+QString::number(cont).toStdString();
+                rm(name);
+                name = "file"+QString::number(cont+2).toStdString();
+                rm(name);
+
+                s = x*x*x + x*x + x + 10;
+                name = "file"+QString::number(cont+4).toStdString();
+                mkfile(name,s*Super_Block.sizeofblock);
+                cont+=5;
+            }
+            break;
+        case 26 ... 50:
+            for (int i = 0; i < limit; ++i) {
+                s = 10;
+                name = "file"+QString::number(cont).toStdString();
+                cout<<name.c_str()<<endl;
+                rm(name);
+                s = x*x + 10;
+                name = "file"+QString::number(cont+1).toStdString();
+                mkfile(name,s*Super_Block.sizeofblock);
+                name = "file"+QString::number(cont+2).toStdString();
+                mkfile(name,s*Super_Block.sizeofblock);
+                s = x*x + x + 10;
+                name = "file"+QString::number(cont+3).toStdString();
+                cout<<name.c_str()<<endl;
+                mkfile(name,s*Super_Block.sizeofblock);
+
+                name = "file"+QString::number(cont).toStdString();
+                mkfile(name,s*Super_Block.sizeofblock);
+                name = "file"+QString::number(cont+2).toStdString();
+                rm(name);
+
+                s = x*x*x + x*x + x + 10;
+                name = "file"+QString::number(cont+4).toStdString();
+                mkfile(name,s*Super_Block.sizeofblock);
+                cont+=5;
+            }
+            break;
+        case 51 ... 75:
+            for (int i = 0; i < limit; ++i) {
+
+                s = x*x*x + x*x + x + 10;
+                name = "file"+QString::number(cont).toStdString();
+                mkfile(name,s*Super_Block.sizeofblock);
+
+                s = 10;
+                name = "file"+QString::number(cont+5).toStdString();
+                cout<<name.c_str()<<endl;
+                mkfile(name,s*Super_Block.sizeofblock);
+                s = x + 10;
+                name = "file"+QString::number(cont+1).toStdString();
+                mkfile(name,s*Super_Block.sizeofblock);
+                name = "file"+QString::number(cont+2).toStdString();
+                mkfile(name,s*Super_Block.sizeofblock);
+                s = x*x + x + 10;
+                name = "file"+QString::number(cont+3).toStdString();
+                cout<<name.c_str()<<endl;
+                mkfile(name,s*Super_Block.sizeofblock);
+
+                name = "file"+QString::number(cont).toStdString();
+                rm(name);
+                name = "file"+QString::number(cont+2).toStdString();
+                rm(name);
+
+                cont+=5;
+            }
+            break;
+        case 76 ... 100:
+            for (int i = 0; i < limit; ++i) {
+                s = 10;
+                name = "file"+QString::number(cont).toStdString();
+                cout<<name.c_str()<<endl;
+                mkfile(name,s*Super_Block.sizeofblock);
+                s = x + 10;
+                name = "file"+QString::number(cont+1).toStdString();
+                mkfile(name,s*Super_Block.sizeofblock);
+                name = "file"+QString::number(cont+2).toStdString();
+                mkfile(name,s*Super_Block.sizeofblock);
+                s = x*x + x + 10;
+                name = "file"+QString::number(cont+3).toStdString();
+                cout<<name.c_str()<<endl;
+                mkfile(name,s*Super_Block.sizeofblock);
+
+                s = x*x*x + x*x + x + 10;
+                name = "file"+QString::number(cont+4).toStdString();
+                mkfile(name,s*Super_Block.sizeofblock);
+                cont+=5;
+            }
+            break;
+        }
+    }
+}
+
+void FileSys::Desfragmentar()
+{
+    vector<int> noDesfragmentados;
+
+    for (int i = 0; i < file_data_array.size(); ++i) {
+        if(file_data_array[i]->index_file!=-1){
+            Inode ino;
+            initInode(&ino);
+            char buff[sizeof(Inode)];
+            read(T_name,(char*)&buff,start_inodes + (file_data_array[i]->index_file)*sizeof(Inode),sizeof(Inode));
+            memcpy(&ino,buff,sizeof(Inode));
+
+            vector<double> datablocks_used = getAllBlocksUsedFor(T_name,&ino,Super_Block.sizeofblock);
+            if(save_fragmented(&ino,NULL,ino.filesize,i))
+            {
+                set_blocks_in_unuse(bitmap,datablocks_used);
+            }else{
+                noDesfragmentados.push_back(i);
+            }
+        }
+    }
+
+    for (int i = 0; i < noDesfragmentados.size(); ++i) {
+        if(file_data_array[i]->index_file!=-1){
+            Inode ino;
+            initInode(&ino);
+            char buff[sizeof(Inode)];
+            read(T_name,(char*)&buff,start_inodes + (file_data_array[noDesfragmentados[i]]->index_file)*sizeof(Inode),sizeof(Inode));
+            memcpy(&ino,buff,sizeof(Inode));
+            vector<double> datablocks_used = getAllBlocksUsedFor(T_name,&ino,Super_Block.sizeofblock);
+            if(save_fragmented(&ino,NULL,ino.filesize,noDesfragmentados[i]))
+            {
+                set_blocks_in_unuse(bitmap,datablocks_used);
+            }
+        }
+    }
+}
+
 int FileSys::searchInFileTable(string name)
 {
-    for (int i = 0; i < file_data_array.size(); ++i) {
-        if(strcmp(file_data_array[i]->name,name.c_str())==0)
-        {
-            return i;
-        }
+//    for (int i = 0; i < file_data_array.size(); ++i) {
+//        if(strcmp(file_data_array[i]->name,name.c_str())==0)
+//        {
+//            return i;
+//        }
+//    }
+    NodoFT *searched = new NodoFT(hashCode(name),0);
+    if(file_table_BTree->buscar(searched))
+    {
+        return searched->index_FT;
     }
     return -1;
 }
 
 int FileSys::searchInodeInFileTable(string name)
 {
-    for (int i = 0; i < file_data_array.size(); ++i) {
-        if(strcmp(file_data_array[i]->name,name.c_str())==0)
-        {
-            return file_data_array[i]->index_file;
-        }
+//    for (int i = 0; i < file_data_array.size(); ++i) {
+//        if(strcmp(file_data_array[i]->name,name.c_str())==0)
+//        {
+//            return file_data_array[i]->index_file;
+//        }
+//    }
+
+    int index = searchInFileTable(name);
+
+    if(index>=0)
+    {
+        return file_data_array[index]->index_file;
     }
+
     return -1;
 }
 
@@ -1331,4 +1658,14 @@ void FileSys::on_btnTrees_clicked()
     }else{
         ui->listTerm->appendPlainText("No hay disco montado.");
     }
+}
+
+void FileSys::on_btnFragment_clicked()
+{
+    Fragmentar();
+}
+
+void FileSys::on_btnDesfragment_clicked()
+{
+    Desfragmentar();
 }

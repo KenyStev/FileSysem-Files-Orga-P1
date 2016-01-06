@@ -22,7 +22,9 @@ HEADERS  += filesys.h \
     disk.h \
     blocksbox.h \
     tree.h \
-    nodo.h
+    nodo.h \
+    Btree.h \
+    B_node.h
 
 FORMS    += filesys.ui \
     blocksbox.ui \
