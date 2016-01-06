@@ -30,6 +30,10 @@ private slots:
 
     void on_btnTrees_clicked();
 
+    void on_btnFragment_clicked();
+
+    void on_btnDesfragment_clicked();
+
 private:
     Ui::FileSys *ui;
     const static int order = 3;
@@ -155,6 +159,9 @@ private:
     void cp(string file,string new_name,QString path);
     void addFile(string filename);
     void rm(string filename);
+    void Fragmentar();
+    void Desfragmentar();
+    bool save_fragmented(Inode *new_inode,char *buffer, int size, int inode_index);
 };
 
 #endif // FILESYS_H
